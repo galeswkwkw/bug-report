@@ -227,7 +227,7 @@ async def upload_documents(
             raise HTTPException(status_code=400, detail="KTP file too large. Max size: 10MB")
         
         ktp_extension = os.path.splitext(ktp_file.filename)[1]
-        ktp_object_name = f"users/{user_id}/ktp_{uuid.uuid4().hex[:8]}{ktp_extension}"
+        ktp_object_name = f"user_documents/{user_id}/ktp_{uuid.uuid4().hex[:8]}{ktp_extension}"
         
         minio_client.upload_file(
             bucket_name="documents",

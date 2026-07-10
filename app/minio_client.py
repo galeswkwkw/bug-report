@@ -12,6 +12,7 @@ class MinioClient:
             secret_key=Config.MINIO_SECRET_KEY,
             secure=Config.MINIO_SECURE
         )
+        self.bucket = Config.MINIO_BUCKET
         self._ensure_buckets()
     
     def _ensure_buckets(self):
@@ -28,6 +29,7 @@ class MinioClient:
             file_size = len(file_content)
             
             result = self.client.put_object(
+                self.bucket,
                 bucket_name,
                 object_name,
                 io.BytesIO(file_content),
@@ -48,6 +50,7 @@ class MinioClient:
         """Generate presigned URL for file access"""
         try:
             url = self.client.presigned_get_object(
+                self.bucket,
                 bucket_name,
                 object_name,
                 expires=timedelta(seconds=expiry) 

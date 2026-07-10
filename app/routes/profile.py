@@ -161,7 +161,7 @@ async def upload_document(
         raise HTTPException(status_code=400, detail=f"File too large. Max size: 10MB")
     
     file_extension = os.path.splitext(file.filename)[1]
-    object_name = f"users/{current_user.id}/{document_type_upper.lower()}_{uuid.uuid4().hex[:8]}{file_extension}"
+    object_name = f"user_documents/{current_user.id}/{document_type_upper.lower()}_{uuid.uuid4().hex[:8]}{file_extension}"
     
     try:
         minio_result = minio_client.upload_file(
@@ -212,7 +212,6 @@ async def get_documents(
         doc_type = db.query(DocumentType).filter(DocumentType.id == doc.document_type_id).first()
         
         presigned_url = minio_client.get_presigned_url(
-            doc.bucket_name,
             doc.object_name,
             expiry=3600
         )
