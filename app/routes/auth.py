@@ -28,7 +28,9 @@ def get_db():
         db.close()
 
 
+# ============================================================
 # POST /auth/register
+# ============================================================
 @router.post("/register", response_model=RegisterResponse)
 async def register(
     request: dict,
@@ -118,7 +120,10 @@ async def register(
         user_id=new_user.id
     )
 
+
+# ============================================================
 # POST /auth/login
+# ============================================================
 @router.post("/login", response_model=LoginResponse)
 async def login(
     request: LoginRequest,
@@ -172,7 +177,10 @@ async def login(
         }
     )
 
+
+# ============================================================
 # GET /roles
+# ============================================================
 @router.get("/roles")
 async def get_roles(db: Session = Depends(get_db)):
     """
@@ -181,7 +189,10 @@ async def get_roles(db: Session = Depends(get_db)):
     roles = db.query(Role).all()
     return {"success": True, "data": [{"id": r.id, "name": r.name} for r in roles]}
 
+
+# ============================================================
 # GET /departments
+# ============================================================
 @router.get("/departments")
 async def get_departments(db: Session = Depends(get_db)):
     """
@@ -191,9 +202,9 @@ async def get_departments(db: Session = Depends(get_db)):
     return {"success": True, "data": [{"id": d.id, "name": d.name} for d in departments]}
 
 
-
-
+# ============================================================
 # POST /auth/upload-documents - UPLOAD TANPA TOKEN
+# ============================================================
 @router.post("/upload-documents")
 async def upload_documents(
     user_id: int = Form(...),
@@ -218,7 +229,9 @@ async def upload_documents(
     
     uploaded_files = []
     
-    # UPLOAD KTP
+    # ============================================================
+    # UPLOAD KTP (WAJIB)
+    # ============================================================
     try:
         ktp_content = await ktp_file.read()
         ktp_size = len(ktp_content)
@@ -229,8 +242,8 @@ async def upload_documents(
         ktp_extension = os.path.splitext(ktp_file.filename)[1]
         ktp_object_name = f"user_documents/{user_id}/ktp_{uuid.uuid4().hex[:8]}{ktp_extension}"
         
+        # Upload ke MinIO (tanpa bucket_name)
         minio_client.upload_file(
-            bucket_name="documents",
             object_name=ktp_object_name,
             file_content=ktp_content,
             content_type=ktp_file.content_type
@@ -247,7 +260,7 @@ async def upload_documents(
             document_type_id=ktp_doc_type.id,
             file_name=ktp_file.filename,
             object_name=ktp_object_name,
-            bucket_name="documents",
+            bucket_name="uploads",
             file_size=ktp_size,
             content_type=ktp_file.content_type or "image/jpeg"
         )
@@ -258,7 +271,9 @@ async def upload_documents(
         db.rollback()
         raise HTTPException(status_code=500, detail=f"KTP upload failed: {str(e)}")
     
-    # UPLOAD NDA 
+    # ============================================================
+    # UPLOAD NDA (WAJIB)
+    # ============================================================
     try:
         nda_content = await nda_file.read()
         nda_size = len(nda_content)
@@ -267,10 +282,10 @@ async def upload_documents(
             raise HTTPException(status_code=400, detail="NDA file too large. Max size: 10MB")
         
         nda_extension = os.path.splitext(nda_file.filename)[1]
-        nda_object_name = f"users/{user_id}/nda_{uuid.uuid4().hex[:8]}{nda_extension}"
+        nda_object_name = f"user_documents/{user_id}/nda_{uuid.uuid4().hex[:8]}{nda_extension}"
         
+        # Upload ke MinIO (tanpa bucket_name)
         minio_client.upload_file(
-            bucket_name="documents",
             object_name=nda_object_name,
             file_content=nda_content,
             content_type=nda_file.content_type
@@ -287,7 +302,7 @@ async def upload_documents(
             document_type_id=nda_doc_type.id,
             file_name=nda_file.filename,
             object_name=nda_object_name,
-            bucket_name="documents",
+            bucket_name="uploads",
             file_size=nda_size,
             content_type=nda_file.content_type or "application/pdf"
         )
@@ -298,7 +313,9 @@ async def upload_documents(
         db.rollback()
         raise HTTPException(status_code=500, detail=f"NDA upload failed: {str(e)}")
     
-    # UPLOAD CV
+    # ============================================================
+    # UPLOAD CV (OPSIONAL)
+    # ============================================================
     if cv_file and cv_file.filename:
         try:
             cv_content = await cv_file.read()
@@ -308,10 +325,10 @@ async def upload_documents(
                 raise HTTPException(status_code=400, detail="CV file too large. Max size: 10MB")
             
             cv_extension = os.path.splitext(cv_file.filename)[1]
-            cv_object_name = f"users/{user_id}/cv_{uuid.uuid4().hex[:8]}{cv_extension}"
+            cv_object_name = f"user_documents/{user_id}/cv_{uuid.uuid4().hex[:8]}{cv_extension}"
             
+            # Upload ke MinIO (tanpa bucket_name)
             minio_client.upload_file(
-                bucket_name="documents",
                 object_name=cv_object_name,
                 file_content=cv_content,
                 content_type=cv_file.content_type
@@ -328,7 +345,7 @@ async def upload_documents(
                 document_type_id=cv_doc_type.id,
                 file_name=cv_file.filename,
                 object_name=cv_object_name,
-                bucket_name="documents",
+                bucket_name="uploads",
                 file_size=cv_size,
                 content_type=cv_file.content_type or "application/pdf"
             )
@@ -339,7 +356,9 @@ async def upload_documents(
             db.rollback()
             raise HTTPException(status_code=500, detail=f"CV upload failed: {str(e)}")
     
-    # COMMIT
+    # ============================================================
+    # COMMIT ALL
+    # ============================================================
     try:
         db.commit()
     except Exception as e:

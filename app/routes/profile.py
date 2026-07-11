@@ -5,7 +5,7 @@ import os
 
 from app.database import SessionLocal
 from app.models import User, Role, Department, UserDocument, DocumentType
-from app.schemas import (  
+from app.schemas import (
     ProfileResponse,
     ProfileUpdateRequest,
     DocumentUploadResponse
@@ -16,8 +16,6 @@ from app.config import Config
 
 router = APIRouter(prefix="/profile", tags=["Profile"])
 
-
-
 def get_db():
     db = SessionLocal()
     try:
@@ -25,7 +23,10 @@ def get_db():
     finally:
         db.close()
 
+
+# ============================================================
 # GET /profile
+# ============================================================
 @router.get("", response_model=ProfileResponse)
 async def get_profile(
     current_user: User = Depends(get_current_active_user),
@@ -69,11 +70,14 @@ async def get_profile(
         created_at=current_user.created_at,
         updated_at=current_user.updated_at,
         documents=doc_list,
-        position=user.position,
-        office_location=user.office_location
+        position=current_user.position,           # ✅ Pakai current_user
+        office_location=current_user.office_location  # ✅ Pakai current_user
     )
 
+
+# ============================================================
 # PUT /profile
+# ============================================================
 @router.put("")
 async def update_profile(
     request: ProfileUpdateRequest,
@@ -87,6 +91,7 @@ async def update_profile(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
+    # Update basic fields
     if request.full_name:
         user.full_name = request.full_name
     if request.phone_number:
@@ -98,6 +103,7 @@ async def update_profile(
     if request.office_location:
         user.office_location = request.office_location
     
+    # Update department
     if request.department:
         department = db.query(Department).filter(Department.name == request.department).first()
         if not department:
@@ -114,17 +120,22 @@ async def update_profile(
         "message": "Profile updated successfully",
         "user_id": user.id
     }
+
+
+# ============================================================
 # POST /profile/documents
+# ============================================================
 @router.post("/documents", response_model=DocumentUploadResponse)
 async def upload_document(
     document_type: str = Form(...),
     file: UploadFile = File(...),
-    current_user: User = Depends(get_current_user),  
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
     Upload user document (KTP, NDA, CV, Portfolio)
     """
+    # Validate document type
     document_type_upper = document_type.upper()
     if document_type_upper not in Config.ALLOWED_DOCUMENT_TYPES:
         raise HTTPException(
@@ -132,6 +143,7 @@ async def upload_document(
             detail=f"Invalid document type. Allowed: {', '.join(Config.ALLOWED_DOCUMENT_TYPES)}"
         )
     
+    # Get or create document type
     doc_type = db.query(DocumentType).filter(
         DocumentType.name == document_type_upper
     ).first()
@@ -141,6 +153,7 @@ async def upload_document(
         db.add(doc_type)
         db.flush()
     
+    # Check if already uploaded
     existing = db.query(UserDocument).filter(
         UserDocument.user_id == current_user.id,
         UserDocument.document_type_id == doc_type.id
@@ -148,35 +161,38 @@ async def upload_document(
     
     if existing:
         try:
-            minio_client.client.remove_object("documents", existing.object_name)
+            minio_client.client.remove_object("uploads", existing.object_name)
         except:
             pass
         db.delete(existing)
         db.flush()
     
+    # Read file
     file_content = await file.read()
     file_size = len(file_content)
     
     if file_size > Config.MAX_FILE_SIZE:
         raise HTTPException(status_code=400, detail=f"File too large. Max size: 10MB")
     
+    # Generate object name
     file_extension = os.path.splitext(file.filename)[1]
     object_name = f"user_documents/{current_user.id}/{document_type_upper.lower()}_{uuid.uuid4().hex[:8]}{file_extension}"
     
     try:
-        minio_result = minio_client.upload_file(
-            bucket_name="documents",
+        # Upload to MinIO (tanpa bucket_name)
+        minio_client.upload_file(
             object_name=object_name,
             file_content=file_content,
             content_type=file.content_type
         )
         
+        # Save metadata
         user_doc = UserDocument(
             user_id=current_user.id,
             document_type_id=doc_type.id,
             file_name=file.filename,
             object_name=object_name,
-            bucket_name="documents",
+            bucket_name="uploads",
             file_size=file_size,
             content_type=file.content_type or "application/octet-stream"
         )
@@ -196,7 +212,10 @@ async def upload_document(
         document_type=document_type_upper
     )
 
+
+# ============================================================
 # GET /profile/documents
+# ============================================================
 @router.get("/documents")
 async def get_documents(
     current_user: User = Depends(get_current_active_user),
@@ -211,8 +230,9 @@ async def get_documents(
     for doc in documents:
         doc_type = db.query(DocumentType).filter(DocumentType.id == doc.document_type_id).first()
         
+        # Get presigned URL (tanpa bucket_name)
         presigned_url = minio_client.get_presigned_url(
-            doc.object_name,
+            object_name=doc.object_name,
             expiry=3600
         )
         result.append({

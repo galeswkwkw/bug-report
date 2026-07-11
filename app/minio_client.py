@@ -17,28 +17,26 @@ class MinioClient:
     
     def _ensure_buckets(self):
         """Create buckets if they don't exist"""
-        buckets = ["documents", "evidence"]
-        for bucket in buckets:
-            if not self.client.bucket_exists(bucket):
-                self.client.make_bucket(bucket)
+        # Hanya perlu 1 bucket (uploads)
+        if not self.client.bucket_exists(self.bucket):
+            self.client.make_bucket(self.bucket)
     
-    def upload_file(self, bucket_name: str, object_name: str, file_content: bytes, content_type: str = None):
+    def upload_file(self, object_name: str, file_content: bytes, content_type: str = None):
         """Upload file to MinIO from bytes"""
         import io
         try:
             file_size = len(file_content)
             
             result = self.client.put_object(
-                self.bucket,
-                bucket_name,
-                object_name,
-                io.BytesIO(file_content),
-                file_size,
-                content_type=content_type or "application/octet-stream"
+                self.bucket,                              # bucket_name
+                object_name,                              # object_name (path/file)
+                io.BytesIO(file_content),                 # data
+                file_size,                                # length
+                content_type=content_type or "application/octet-stream"  # content_type
             )
             
             return {
-                "bucket_name": bucket_name,
+                "bucket_name": self.bucket,
                 "object_name": object_name,
                 "size": file_size,
                 "content_type": content_type
@@ -46,13 +44,12 @@ class MinioClient:
         except S3Error as e:
             raise Exception(f"MinIO upload failed: {str(e)}")
     
-    def get_presigned_url(self, bucket_name: str, object_name: str, expiry: int = 3600):
+    def get_presigned_url(self, object_name: str, expiry: int = 3600):
         """Generate presigned URL for file access"""
         try:
             url = self.client.presigned_get_object(
-                self.bucket,
-                bucket_name,
-                object_name,
+                self.bucket,                              # bucket_name
+                object_name,                              # object_name
                 expires=timedelta(seconds=expiry) 
             )
             return url
