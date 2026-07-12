@@ -34,6 +34,7 @@ async def get_assets(
             id=asset.id,
             name=asset.name,
             domain=asset.domain,
+            asset_type=asset.asset_type,
             description=asset.description,
             is_active=asset.is_active,
             created_at=asset.created_at,
