@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.sql import func
 
 from app.database import SessionLocal
-from app.models import User, Department, UserDocument, DocumentType
+from app.models import User, Department, UserDocument, DocumentType, Role  
 from app.schemas import ( 
     AdminActionResponse
 )
@@ -18,6 +18,45 @@ def get_db():
         yield db
     finally:
         db.close()
+
+# GET /admin/users/rejected - GET REJECTED USERS 
+@router.get("/users/rejected")
+async def get_rejected_users(
+    current_user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Get all rejected users (status = Rejected) - Admin only
+    """
+    rejected_users = db.query(User).filter(User.status == "Rejected").order_by(User.created_at.desc()).all()
+    
+    result = []
+    for user in rejected_users:
+        department = db.query(Department).filter(Department.id == user.department_id).first()
+        
+        role = db.query(Role).filter(Role.id == user.role_id).first()
+        
+        result.append({
+            "id": user.id,
+            "full_name": user.full_name,
+            "email": user.email,
+            "researcher_type": user.researcher_type,
+            "company": user.company,
+            "employee_id": user.employee_id,
+            "department_name": department.name if department else None,
+            "role_name": role.name if role else None,
+            "total_point": user.total_point,
+            "status": user.status,
+            "created_at": user.created_at,
+            "updated_at": user.updated_at,
+            "rejected_at": user.updated_at  
+        })
+    
+    return {
+        "success": True,
+        "count": len(result),
+        "data": result
+    }
 
 # GET /admin/users/pending
 @router.get("/users/pending")
@@ -60,6 +99,46 @@ async def get_pending_users(
             "created_at": user.created_at,
             "status": user.status,
             "documents": doc_list
+        })
+    
+    return {
+        "success": True,
+        "count": len(result),
+        "data": result
+    }
+
+# GET /admin/users/approved - GET APPROVED USERS (ADMIN ONLY)
+@router.get("/users/approved")
+async def get_approved_users(
+    current_user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Get all approved users (status = Active) - Admin only
+    """
+    approved_users = db.query(User).filter(User.status == "Active").order_by(User.created_at.desc()).all()
+    
+    result = []
+    for user in approved_users:
+        # Get department name
+        department = db.query(Department).filter(Department.id == user.department_id).first()
+        
+        # Get role name
+        role = db.query(Role).filter(Role.id == user.role_id).first()
+        
+        result.append({
+            "id": user.id,
+            "full_name": user.full_name,
+            "email": user.email,
+            "researcher_type": user.researcher_type,
+            "company": user.company,
+            "employee_id": user.employee_id,
+            "department_name": department.name if department else None,
+            "role_name": role.name if role else None,
+            "total_point": user.total_point,
+            "status": user.status,
+            "created_at": user.created_at,
+            "updated_at": user.updated_at
         })
     
     return {
