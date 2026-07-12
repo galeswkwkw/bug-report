@@ -9,7 +9,14 @@ from app.schemas.schemas import (
     DocumentUploadResponse,
     DocumentResponse,
     PendingUserResponse,
-    AdminActionResponse
+    AdminActionResponse,
+    AssetCreateRequest,
+    AssetUpdateRequest,
+    AssetResponse,
+    ReportCreateRequest,
+    ReportUpdateRequest,
+    ReportResponse,
+    ReportEvidenceResponse
 )
 
 __all__ = [
@@ -23,5 +30,12 @@ __all__ = [
     "DocumentUploadResponse",
     "DocumentResponse",
     "PendingUserResponse",
-    "AdminActionResponse"
+    "AdminActionResponse",
+    "AssetCreateRequest",
+    "AssetUpdateRequest",
+    "AssetResponse",
+    "ReportCreateRequest",
+    "ReportUpdateRequest",
+    "ReportResponse",
+    "ReportEvidenceResponse"
 ]
