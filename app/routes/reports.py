@@ -122,7 +122,7 @@ async def get_report_by_id(
 async def update_report(
     report_id: int,
     request: ReportUpdateRequest,
-    current_user: User = Depends(get_current_admin),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -198,7 +198,7 @@ async def update_report(
 @router.delete("/{report_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_report(
     report_id: int,
-    current_user: User = Depends(get_current_admin),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """
