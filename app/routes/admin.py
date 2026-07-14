@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import func
+from typing import Optional
 
 from app.database import SessionLocal
 from app.models import User, Department, UserDocument, DocumentType, Role, Report    
@@ -18,6 +19,184 @@ def get_db():
         yield db
     finally:
         db.close()
+# GET /admin/users/{id} - GET USER DETAIL (ADMIN ONLY)
+@router.get("/users/{user_id}")
+async def get_user_detail(
+    user_id: int,
+    current_user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Get user detail by ID (Admin only).
+    """
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail=f"User with ID {user_id} not found"
+        )
+    
+
+    role = db.query(Role).filter(Role.id == user.role_id).first()
+    
+
+    department = db.query(Department).filter(Department.id == user.department_id).first()
+    
+
+    documents = db.query(UserDocument).filter(UserDocument.user_id == user.id).all()
+    
+
+    total_reports = db.query(Report).filter(Report.user_id == user.id).count()
+    accepted_reports = db.query(Report).filter(
+        Report.user_id == user.id,
+        Report.status == "Accepted"
+    ).count()
+    rejected_reports = db.query(Report).filter(
+        Report.user_id == user.id,
+        Report.status == "Rejected"
+    ).count()
+    
+
+    doc_list = []
+    for doc in documents:
+        doc_type = db.query(DocumentType).filter(DocumentType.id == doc.document_type_id).first()
+        doc_list.append({
+            "id": doc.id,
+            "document_type": doc_type.name if doc_type else None,
+            "file_name": doc.file_name,
+            "object_name": doc.object_name,
+            "file_size": doc.file_size,
+            "content_type": doc.content_type,
+            "created_at": doc.created_at
+        })
+    
+    return {
+        "success": True,
+        "data": {
+            "id": user.id,
+            "full_name": user.full_name,
+            "email": user.email,
+            "phone_number": user.phone_number,
+            "researcher_type": user.researcher_type,
+            "employee_id": user.employee_id,
+            "company": user.company,
+            "position": user.position,
+            "office_location": user.office_location,
+            "role_id": user.role_id,
+            "role_name": role.name if role else None,
+            "department_id": user.department_id,
+            "department_name": department.name if department else None,
+            "total_point": user.total_point,
+            "status": user.status,
+            "created_at": user.created_at,
+            "updated_at": user.updated_at,
+            "documents": doc_list,
+            "statistics": {
+                "total_reports": total_reports,
+                "accepted_reports": accepted_reports,
+                "rejected_reports": rejected_reports
+            }
+        }
+    }
+
+
+# GET /admin/users - GET ALL USERS (ADMIN ONLY)
+
+@router.get("/users")
+async def get_all_users(
+    current_user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+    status: Optional[str] = None,
+    role: Optional[str] = None, 
+    search: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0
+):
+    """
+    Get all users with filters and pagination (Admin only).
+    
+    Query Parameters:
+    - status: filter by status (Pending, Active, Rejected)
+    - role: filter by role name (admin, security_team, researcher)
+    - search: search by name or email
+    - limit: number of results per page (default 50)
+    - offset: number of results to skip (default 0)
+    """
+    
+    query = db.query(User)
+    
+    
+    if status:
+        query = query.filter(User.status == status)
+    
+    
+    if role:
+        
+        role_mapping = {
+            "admin": 1,
+            "security_team": 2,
+            "researcher": 3
+        }
+        
+        role_id = role_mapping.get(role.lower())
+        if role_id:
+            query = query.filter(User.role_id == role_id)
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid role. Must be: admin, security_team, researcher"
+            )
+    
+    
+    if search:
+        query = query.filter(
+            (User.full_name.ilike(f"%{search}%")) | 
+            (User.email.ilike(f"%{search}%"))
+        )
+    
+    
+    total_count = query.count()
+    
+    
+    users = query.order_by(User.created_at.desc()).offset(offset).limit(limit).all()
+    
+    
+    result = []
+    for user in users:
+        role_obj = db.query(Role).filter(Role.id == user.role_id).first()
+        department = db.query(Department).filter(Department.id == user.department_id).first()
+        
+        result.append({
+            "id": user.id,
+            "full_name": user.full_name,
+            "email": user.email,
+            "phone_number": user.phone_number,
+            "researcher_type": user.researcher_type,
+            "employee_id": user.employee_id,
+            "company": user.company,
+            "position": user.position,
+            "office_location": user.office_location,
+            "role_id": user.role_id,
+            "role_name": role_obj.name if role_obj else None,
+            "department_id": user.department_id,
+            "department_name": department.name if department else None,
+            "total_point": user.total_point,
+            "status": user.status,
+            "created_at": user.created_at,
+            "updated_at": user.updated_at
+        })
+    
+    return {
+        "success": True,
+        "data": result,
+        "pagination": {
+            "total": total_count,
+            "limit": limit,
+            "offset": offset,
+            "next_offset": offset + limit if offset + limit < total_count else None
+        }
+    }
 
 # GET /admin/users/rejected - GET REJECTED USERS 
 @router.get("/users/rejected")
@@ -151,10 +330,10 @@ async def get_approved_users(
     
     result = []
     for user in approved_users:
-        # Get department name
+        
         department = db.query(Department).filter(Department.id == user.department_id).first()
         
-        # Get role name
+        
         role = db.query(Role).filter(Role.id == user.role_id).first()
         
         result.append({
@@ -178,6 +357,162 @@ async def get_approved_users(
         "data": result
     }
 
+# GET /admin/users - GET ALL USERS (ADMIN ONLY)
+
+@router.get("/users")
+async def get_all_users(
+    current_user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+    status: Optional[str] = None,
+    role_id: Optional[int] = None,
+    search: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0
+):
+    """
+    Get all users with filters and pagination (Admin only).
+    
+    Query Parameters:
+    - status: filter by status (Pending, Active, Rejected)
+    - role_id: filter by role_id (1=Admin, 2=Security, 3=Researcher)
+    - search: search by name or email
+    - limit: number of results per page (default 50)
+    - offset: number of results to skip (default 0)
+    """
+    
+    query = db.query(User)
+    
+    
+    if status:
+        query = query.filter(User.status == status)
+    
+    if role_id:
+        query = query.filter(User.role_id == role_id)
+    
+    if search:
+        query = query.filter(
+            (User.full_name.ilike(f"%{search}%")) | 
+            (User.email.ilike(f"%{search}%"))
+        )
+    
+    
+    total_count = query.count()
+    
+    
+    users = query.order_by(User.created_at.desc()).offset(offset).limit(limit).all()
+    
+    
+    result = []
+    for user in users:
+        
+        role = db.query(Role).filter(Role.id == user.role_id).first()
+        
+        department = db.query(Department).filter(Department.id == user.department_id).first()
+        
+        result.append({
+            "id": user.id,
+            "full_name": user.full_name,
+            "email": user.email,
+            "phone_number": user.phone_number,
+            "researcher_type": user.researcher_type,
+            "employee_id": user.employee_id,
+            "company": user.company,
+            "position": user.position,
+            "office_location": user.office_location,
+            "role_id": user.role_id,
+            "role_name": role.name if role else None,
+            "department_id": user.department_id,
+            "department_name": department.name if department else None,
+            "total_point": user.total_point,
+            "status": user.status,
+            "created_at": user.created_at,
+            "updated_at": user.updated_at
+        })
+    
+    return {
+        "success": True,
+        "data": result,
+        "pagination": {
+            "total": total_count,
+            "limit": limit,
+            "offset": offset,
+            "next_offset": offset + limit if offset + limit < total_count else None
+        }
+    }
+
+# POST /admin/security-teams - ADD SECURITY TEAM MEMBER (ADMIN ONLY)
+
+@router.post("/security-teams")
+async def create_security_team(
+    request: dict,
+    current_user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Add a new Security Team member (Admin only).
+    """
+    
+    full_name = request.get("full_name")
+    email = request.get("email")
+    password = request.get("password")
+    
+    if not full_name:
+        raise HTTPException(status_code=400, detail="full_name is required")
+    if not email:
+        raise HTTPException(status_code=400, detail="email is required")
+    if not password:
+        raise HTTPException(status_code=400, detail="password is required")
+    
+    if len(password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+    
+    
+    existing_user = db.query(User).filter(User.email == email).first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    
+    from app.auth import hash_password
+    hashed_password = hash_password(password)
+    
+    
+    new_user = User(
+        role_id=2,  # Security Team
+        researcher_type="Internal",
+        full_name=full_name,
+        email=email,
+        phone_number=request.get("phone_number"),
+        position=request.get("position"),
+        password_hash=hashed_password,
+        status="Active"  
+    )
+    
+    db.add(new_user)
+    
+    try:
+        db.commit()
+        db.refresh(new_user)
+    except IntegrityError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=400,
+            detail=f"Failed to create security team member: {str(e)}"
+        )
+    
+    return {
+        "success": True,
+        "message": f"Security Team member {full_name} created successfully",
+        "data": {
+            "id": new_user.id,
+            "full_name": new_user.full_name,
+            "email": new_user.email,
+            "phone_number": new_user.phone_number,
+            "position": new_user.position,
+            "role_id": new_user.role_id,
+            "status": new_user.status,
+            "created_at": new_user.created_at
+        }
+    }
 
 
 # PUT /admin/users/{id}/approve
