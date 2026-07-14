@@ -16,7 +16,8 @@ from app.schemas.schemas import (
     ReportCreateRequest,
     ReportUpdateRequest,
     ReportResponse,
-    ReportEvidenceResponse
+    ReportEvidenceResponse,
+    ReviewRequest,
 )
 
 __all__ = [
@@ -37,5 +38,6 @@ __all__ = [
     "ReportCreateRequest",
     "ReportUpdateRequest",
     "ReportResponse",
-    "ReportEvidenceResponse"
+    "ReportEvidenceResponse",
+    "ReviewRequest"
 ]

@@ -17,7 +17,7 @@ class MinioClient:
     
     def _ensure_buckets(self):
         """Create buckets if they don't exist"""
-        # Hanya perlu 1 bucket (uploads)
+
         if not self.client.bucket_exists(self.bucket):
             self.client.make_bucket(self.bucket)
     
@@ -28,11 +28,11 @@ class MinioClient:
             file_size = len(file_content)
             
             result = self.client.put_object(
-                self.bucket,                              # bucket_name
-                object_name,                              # object_name (path/file)
-                io.BytesIO(file_content),                 # data
-                file_size,                                # length
-                content_type=content_type or "application/octet-stream"  # content_type
+                self.bucket,                    
+                object_name,                              
+                io.BytesIO(file_content),
+                file_size,                 
+                content_type=content_type or "application/octet-stream"  
             )
             
             return {
@@ -48,8 +48,8 @@ class MinioClient:
         """Generate presigned URL for file access"""
         try:
             url = self.client.presigned_get_object(
-                self.bucket,                              # bucket_name
-                object_name,                              # object_name
+                self.bucket,                              
+                object_name,                              
                 expires=timedelta(seconds=expiry) 
             )
             return url

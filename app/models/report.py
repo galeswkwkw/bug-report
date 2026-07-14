@@ -10,6 +10,7 @@ class Report(Base):
     user_id = Column(BigInteger, ForeignKey("users.id"), nullable=False)
     asset_id = Column(BigInteger, ForeignKey("assets.id"), nullable=False)
     reviewer_id = Column(BigInteger, ForeignKey("users.id"), nullable=True)
+    assigned_to = Column(BigInteger, ForeignKey("users.id"), nullable=True)
     
     title = Column(String(255), nullable=False)
     category = Column(String(100), nullable=False)

@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.sql import func
 
 from app.database import SessionLocal
-from app.models import User, Department, UserDocument, DocumentType, Role  
+from app.models import User, Department, UserDocument, DocumentType, Role, Report    
 from app.schemas import ( 
     AdminActionResponse
 )
@@ -50,6 +50,37 @@ async def get_rejected_users(
             "created_at": user.created_at,
             "updated_at": user.updated_at,
             "rejected_at": user.updated_at  
+        })
+    
+    return {
+        "success": True,
+        "count": len(result),
+        "data": result
+    }
+
+# GET /security-teams - GET ALL SECURITY TEAM MEMBERS (ADMIN ONLY)
+@router.get("/security-teams")
+async def get_security_teams(
+    current_user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Get all Security Team members (role_id = 2) - Admin only.
+    """
+    security_teams = db.query(User).filter(User.role_id == 2).order_by(User.full_name).all()
+    
+    result = []
+    for user in security_teams:
+        result.append({
+            "id": user.id,
+            "full_name": user.full_name,
+            "email": user.email,
+            "status": user.status,
+            "total_reports_assigned": db.query(Report).filter(Report.assigned_to == user.id).count(),
+            "total_reports_reviewed": db.query(Report).filter(
+                Report.reviewer_id == user.id,
+                Report.status.in_(["Accepted", "Rejected"])
+            ).count()
         })
     
     return {
