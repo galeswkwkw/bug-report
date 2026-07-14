@@ -13,6 +13,7 @@ class MinioClient:
             secure=Config.MINIO_SECURE
         )
         self.bucket = Config.MINIO_BUCKET
+        self.public_url = Config.MINIO_PUBLIC_URL
         self._ensure_buckets()
     
     def _ensure_buckets(self):
@@ -45,13 +46,20 @@ class MinioClient:
             raise Exception(f"MinIO upload failed: {str(e)}")
     
     def get_presigned_url(self, object_name: str, expiry: int = 3600):
-        """Generate presigned URL for file access"""
+        """Generate presigned URL menggunakan PUBLIC DOMAIN, bukan internal IP!"""
         try:
+            # 🔥 Generate presigned URL pake public domain
             url = self.client.presigned_get_object(
-                self.bucket,                              
-                object_name,                              
-                expires=timedelta(seconds=expiry) 
+                self.bucket,
+                object_name,
+                expires=timedelta(seconds=expiry)
             )
+            
+            if self.public_url:
+                parsed = urllib.parse.urlparse(url)
+                public_url = f"{self.public_url}{parsed.path}?{parsed.query}"
+                return public_url
+            
             return url
         except S3Error as e:
             raise Exception(f"Failed to generate presigned URL: {str(e)}")
