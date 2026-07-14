@@ -51,12 +51,12 @@ async def get_my_assigned_reviews(
     """
     if current_user.role_id == 1:  # Admin
         reports = db.query(Report).filter(
-            Report.status == "Assigned"
+            Report.status.in_(["Assigned", "In Review"])  
         ).order_by(Report.created_at.desc()).all()
     else:
         reports = db.query(Report).filter(
             Report.assigned_to == current_user.id,
-            Report.status == "Assigned"
+            Report.status.in_(["Assigned", "In Review"])  
         ).order_by(Report.created_at.desc()).all()
     
     result = []
