@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends, status
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import func
 from datetime import datetime
+from typing import Optional
 
 from app.database import SessionLocal
 from app.models import Report, Asset, User, PointRule, ReportEvidence
@@ -42,22 +43,39 @@ def get_current_admin_or_security(current_user: User = Depends(get_current_activ
 @router.get("/my-assigned")
 async def get_my_assigned_reviews(
     current_user: User = Depends(get_current_admin_or_security),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    status: Optional[str] = None 
 ):
     """
     Get all reports assigned to current user (Security Team) or all assigned reports (Admin).
     - Security Team: hanya report yang di-assign ke dirinya sendiri
-    - Admin: semua report yang statusnya 'Assigned'
+    - Admin: semua report yang statusnya 'Assigned' atau 'In Review'
+    
+    Query Parameters:
+    - status: filter by status (assigned, in_review, reviewed)
     """
+    
     if current_user.role_id == 1:  # Admin
-        reports = db.query(Report).filter(
-            Report.status.in_(["Assigned", "In Review"])  
-        ).order_by(Report.created_at.desc()).all()
-    else:
-        reports = db.query(Report).filter(
+        query = db.query(Report).filter(
+            Report.status.in_(["Assigned", "In Review", "Accepted", "Rejected"])
+        )
+    else:  
+        query = db.query(Report).filter(
             Report.assigned_to == current_user.id,
-            Report.status.in_(["Assigned", "In Review"])  
-        ).order_by(Report.created_at.desc()).all()
+            Report.status.in_(["Assigned", "In Review", "Accepted", "Rejected"])
+        )
+ 
+    if status == "assigned":
+        query = query.filter(Report.status == "Assigned")
+    elif status == "in_review":
+        query = query.filter(Report.status == "In Review")
+    elif status == "reviewed":
+        query = query.filter(Report.status.in_(["Accepted", "Rejected"]))
+    
+    
+    
+    reports = query.order_by(Report.created_at.desc()).all()
+    
     
     result = []
     for report in reports:
