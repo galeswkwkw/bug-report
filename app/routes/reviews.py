@@ -257,19 +257,20 @@ async def review_report(
         asset_name=asset.name if asset else None,
         user_name=user.full_name if user else None
     )
-
-# GET /reviews/{report_id} - GET ASSIGNED REPORT DETAIL (ADMIN & SECURITY)
+# GET /reviews/{id} - GET ASSIGNED REPORT DETAIL (ADMIN & SECURITY)
 @router.get("/{report_id}")
 async def get_assigned_report_detail(
     report_id: int,
-    current_user: User = Depends(get_current_admin_or_security),  # ← UBAH!
+    current_user: User = Depends(get_current_admin_or_security),
     db: Session = Depends(get_db)
 ):
     """
     Get detail of a report assigned to Security Team.
     - Admin: can view any assigned report
     - Security Team: only reports assigned to themselves
+    - Status: Assigned, In Review, Accepted, Rejected
     """
+    # 1. Cek report exists
     report = db.query(Report).filter(Report.id == report_id).first()
     if not report:
         raise HTTPException(
@@ -277,28 +278,35 @@ async def get_assigned_report_detail(
             detail=f"Report with ID {report_id} not found"
         )
     
-    if current_user.role_id == 1:  
-        if report.status not in ["Assigned", "In Review"]:
+    # 2. 🔥 CEK AKSES
+    if current_user.role_id == 1:  # Admin
+        # Admin bisa lihat semua report yang sudah di-assign
+        if report.assigned_to is None:
             raise HTTPException(
                 status_code=400,
-                detail=f"Report status is {report.status}. Only Assigned or In Review reports can be viewed."
+                detail="This report has not been assigned yet"
             )
-    else:
+    else:  # Security Team
+        # Security Team cuma bisa lihat report yang di-assign ke dirinya
         if report.assigned_to != current_user.id:
             raise HTTPException(
                 status_code=403,
                 detail="This report is not assigned to you"
             )
         
-        if report.status not in ["Assigned", "In Review"]:
+        # Security Team hanya bisa lihat report dengan status tertentu
+        valid_statuses = ["Assigned", "In Review", "Accepted", "Rejected"]
+        if report.status not in valid_statuses:
             raise HTTPException(
                 status_code=400,
-                detail=f"Report status is {report.status}. Only Assigned or In Review reports can be viewed."
+                detail=f"Report status is {report.status}. Cannot view this report."
             )
     
+    # 3. Ambil data tambahan
     asset = db.query(Asset).filter(Asset.id == report.asset_id).first()
     user = db.query(User).filter(User.id == report.user_id).first()
     
+    # 4. Ambil evidence
     evidences = db.query(ReportEvidence).filter(
         ReportEvidence.report_id == report_id
     ).order_by(ReportEvidence.created_at.desc()).all()
@@ -318,6 +326,7 @@ async def get_assigned_report_detail(
             "url": presigned_url
         })
     
+    # 5. Response
     return {
         "id": report.id,
         "user_id": report.user_id,
@@ -333,6 +342,9 @@ async def get_assigned_report_detail(
         "severity": report.severity,
         "point": report.point,
         "status": report.status,
+        "review_comment": report.review_comment,
+        "reject_reason": report.reject_reason,
+        "reviewed_at": report.reviewed_at,
         "created_at": report.created_at,
         "updated_at": report.updated_at,
         "evidences": evidence_list
