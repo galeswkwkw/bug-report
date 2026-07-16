@@ -195,7 +195,8 @@ class ReportResponse(BaseModel):
     status: str
     review_comment: Optional[str]
     reject_reason: Optional[str]
-    reviewed_at: Optional[datetime]
+    accepted_at: Optional[datetime] = None
+    rejected_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
     asset_name: Optional[str] = None

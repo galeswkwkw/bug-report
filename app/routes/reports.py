@@ -432,11 +432,22 @@ async def get_report_by_id(
     asset = db.query(Asset).filter(Asset.id == report.asset_id).first()
     user = db.query(User).filter(User.id == report.user_id).first()
     
+    
+    reviewer_data = None
+    if report.reviewer_id:
+        reviewer = db.query(User).filter(User.id == report.reviewer_id).first()
+        if reviewer:
+            reviewer_data = {
+                "id": reviewer.id,
+                "name": reviewer.full_name
+            }
+    
     return ReportResponse(
         id=report.id,
         user_id=report.user_id,
         asset_id=report.asset_id,
         reviewer_id=report.reviewer_id,
+        reviewer=reviewer_data, 
         title=report.title,
         category=report.category,
         description=report.description,

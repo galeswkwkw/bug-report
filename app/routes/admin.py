@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import func
 from typing import Optional
+from datetime import datetime 
 
 from app.database import SessionLocal
 from app.models import User, Department, UserDocument, DocumentType, Role, Report    
@@ -514,6 +515,145 @@ async def create_security_team(
         }
     }
 
+
+# PUT /admin/users/{id} - UPDATE USER DATA (ADMIN ONLY)
+
+@router.put("/users/{user_id}")
+async def update_user(
+    user_id: int,
+    request: dict,
+    current_user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Update user data by ID (Admin only).
+    """
+    
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail=f"User with ID {user_id} not found"
+        )
+    
+    
+    if "full_name" in request:
+        user.full_name = request["full_name"]
+    if "email" in request:
+        
+        existing = db.query(User).filter(
+            User.email == request["email"],
+            User.id != user_id
+        ).first()
+        if existing:
+            raise HTTPException(
+                status_code=400,
+                detail="Email already used by another user"
+            )
+        user.email = request["email"]
+    if "phone_number" in request:
+        user.phone_number = request["phone_number"]
+    if "position" in request:
+        user.position = request["position"]
+    if "office_location" in request:
+        user.office_location = request["office_location"]
+    if "department" in request:
+        department = db.query(Department).filter(
+            Department.name == request["department"]
+        ).first()
+        if not department:
+            department = Department(name=request["department"])
+            db.add(department)
+            db.flush()
+        user.department_id = department.id
+    if "company" in request:
+        user.company = request["company"]
+    if "employee_id" in request:
+        user.employee_id = request["employee_id"]
+    
+    user.updated_at = datetime.now()
+    
+    db.commit()
+    db.refresh(user)
+    
+    
+    role = db.query(Role).filter(Role.id == user.role_id).first()
+    department = db.query(Department).filter(Department.id == user.department_id).first()
+    
+    return {
+        "success": True,
+        "message": f"User {user.full_name} updated successfully",
+        "data": {
+            "id": user.id,
+            "full_name": user.full_name,
+            "email": user.email,
+            "phone_number": user.phone_number,
+            "position": user.position,
+            "office_location": user.office_location,
+            "department_name": department.name if department else None,
+            "role_name": role.name if role else None,
+            "status": user.status,
+            "updated_at": user.updated_at
+        }
+    }
+
+# PUT /admin/users/{id}/status - UPDATE USER STATUS (ADMIN ONLY)
+
+@router.put("/users/{user_id}/status")
+async def update_user_status(
+    user_id: int,
+    request: dict,
+    current_user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Update user status by ID (Admin only).
+    Status options: active, inactive
+    """
+    
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail=f"User with ID {user_id} not found"
+        )
+
+    
+    status = request.get("status")
+    if not status:
+        raise HTTPException(
+            status_code=400,
+            detail="status is required (active or inactive)"
+        )
+    
+    if status not in ["active", "inactive"]:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid status. Must be 'active' or 'inactive'"
+        )
+    
+    
+    if status == "active":
+        user.status = "Active"
+    elif status == "inactive":
+        user.status = "Inactive"
+    
+    user.updated_at = datetime.now()
+    
+    db.commit()
+    db.refresh(user)
+    
+    return {
+        "success": True,
+        "message": f"User {user.full_name} status updated to {status}",
+        "data": {
+            "id": user.id,
+            "full_name": user.full_name,
+            "email": user.email,
+            "status": user.status,
+            "updated_at": user.updated_at
+        }
+    }
 
 # PUT /admin/users/{id}/approve
 @router.put("/users/{user_id}/approve", response_model=AdminActionResponse)

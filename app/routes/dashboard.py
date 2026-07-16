@@ -14,6 +14,7 @@ def get_db():
         db.close()
 
 # GET /dashboard/researcher - DASHBOARD RESEARCHER
+@router.get("/researcher")
 async def get_researcher_dashboard(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)

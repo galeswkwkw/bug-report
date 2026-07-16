@@ -27,16 +27,21 @@ class Report(Base):
     reject_reason = Column(Text, nullable=True)
     reviewed_at = Column(TIMESTAMP, nullable=True)
     
+    
+    accepted_at = Column(TIMESTAMP, nullable=True)
+    rejected_at = Column(TIMESTAMP, nullable=True)
+    
     created_at = Column(TIMESTAMP, default=func.now())
     updated_at = Column(TIMESTAMP, default=func.now(), onupdate=func.now())
     
-    # Relationships
+    
     user = relationship("User", foreign_keys=[user_id])
     asset = relationship("Asset")
     reviewer = relationship("User", foreign_keys=[reviewer_id])
+    assigned = relationship("User", foreign_keys=[assigned_to])
     evidences = relationship("ReportEvidence", back_populates="report", cascade="all, delete-orphan")
     
     __table_args__ = (
+        CheckConstraint("status IN ('Submitted', 'Assigned', 'In Review', 'Accepted', 'Rejected')"),
         CheckConstraint("severity IN ('Critical', 'High', 'Medium', 'Low', 'Informational')"),
-        CheckConstraint("status IN ('Submitted', 'Accepted', 'Rejected')"),
     )

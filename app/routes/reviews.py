@@ -142,7 +142,6 @@ async def start_review(
         "status": report.status, 
         "started_at": report.reviewed_at
     }
-
 # PUT /reviews/{id} - REVIEW REPORT (ACCEPT/REJECT)
 @router.put("/{report_id}", response_model=ReportResponse)
 async def review_report(
@@ -197,6 +196,7 @@ async def review_report(
         report.review_comment = request.comment
         report.reviewer_id = current_user.id
         report.reviewed_at = datetime.now()
+        report.accepted_at = datetime.now()  # 🔥 TAMBAHKAN!
         
         point_rule = db.query(PointRule).filter(PointRule.severity == request.severity).first()
         report.point = point_rule.point if point_rule else 0
@@ -218,6 +218,7 @@ async def review_report(
         report.review_comment = request.comment
         report.reviewer_id = current_user.id
         report.reviewed_at = datetime.now()
+        report.rejected_at = datetime.now()  # 🔥 TAMBAHKAN!
         report.point = 0
     
     report.updated_at = datetime.now()
@@ -252,12 +253,14 @@ async def review_report(
         review_comment=report.review_comment,
         reject_reason=report.reject_reason,
         reviewed_at=report.reviewed_at,
+        accepted_at=report.accepted_at,  
+        rejected_at=report.rejected_at,  
         created_at=report.created_at,
         updated_at=report.updated_at,
         asset_name=asset.name if asset else None,
         user_name=user.full_name if user else None
     )
-    
+
 # GET /reviews/{id} - GET ASSIGNED REPORT DETAIL (ADMIN & SECURITY)
 @router.get("/{report_id}")
 async def get_assigned_report_detail(
