@@ -3,7 +3,7 @@ from minio.error import S3Error
 from app.config import Config
 import os
 from datetime import timedelta
-import urllib.parse  # ← TAMBAHKAN!
+import urllib.parse
 
 class MinioClient:
     def __init__(self):
@@ -11,7 +11,8 @@ class MinioClient:
             Config.MINIO_ENDPOINT,
             access_key=Config.MINIO_ACCESS_KEY,
             secret_key=Config.MINIO_SECRET_KEY,
-            secure=Config.MINIO_SECURE
+            secure=Config.MINIO_SECURE,
+            region='us-east-1'
         )
         self.bucket = Config.MINIO_BUCKET
         self.public_url = Config.MINIO_PUBLIC_URL
@@ -42,14 +43,15 @@ class MinioClient:
             raise Exception(f"MinIO upload failed: {str(e)}")
     
     def get_presigned_url(self, object_name: str, expiry: int = 3600):
-        """Generate presigned URL menggunakan PUBLIC DOMAIN"""
         try:
+            # Generate presigned URL dari MinIO
             url = self.client.presigned_get_object(
                 self.bucket,
                 object_name,
                 expires=timedelta(seconds=expiry)
             )
             
+            # Jika ada public_url, ganti endpoint-nya
             if self.public_url:
                 parsed = urllib.parse.urlparse(url)
                 public_url = f"{self.public_url}{parsed.path}?{parsed.query}"
