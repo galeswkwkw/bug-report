@@ -2,18 +2,20 @@ import bcrypt
 from app.database import SessionLocal
 from app.models import User
 
-def create_admin():
+def create_superadmin():
     db = SessionLocal()
     
-    existing_admin = db.query(User).filter(User.email == "security@company.com").first()
+    # Cek apakah Super Admin sudah ada
+    existing_admin = db.query(User).filter(User.email == "superadmin@company.com").first()
     if existing_admin:
-        print(f"⚠️ Admin already exists with ID: {existing_admin.id}")
+        print(f"⚠️ Super Admin already exists with ID: {existing_admin.id}")
         print(f"   Email: {existing_admin.email}")
         print(f"   Status: {existing_admin.status}")
         db.close()
         return
     
-    password = "security123"
+    # Hash password: superadmin123
+    password = "superadmin123"
     password_bytes = password.encode('utf-8')[:72]
     salt = bcrypt.gensalt()
     hashed = bcrypt.hashpw(password_bytes, salt)
@@ -22,11 +24,12 @@ def create_admin():
     print(f"🔑 Password: {password}")
     print(f"🔒 Hash: {hashed_str}")
     
+    # Buat Super Admin dengan role_id = 4
     admin = User(
-        role_id=2, 
+        role_id=4,  # Super Admin
         researcher_type="Internal",
-        full_name="security User",
-        email="security@company.com",
+        full_name="Super Admin",
+        email="superadmin@company.com",
         password_hash=hashed_str,
         status="Active"
     )
@@ -35,12 +38,13 @@ def create_admin():
     db.commit()
     db.refresh(admin)
     
-    print("✅ Admin created successfully!")
+    print("✅ Super Admin created successfully!")
     print(f"   ID: {admin.id}")
-    print(f"   Email: security@company.com")
-    print(f"   Password: security123")
+    print(f"   Email: superadmin@company.com")
+    print(f"   Password: superadmin123")
+    print(f"   Role: Super Admin (role_id: 4)")
     print(f"   Status: Active")
     db.close()
 
 if __name__ == "__main__":
-    create_admin()
+    create_superadmin()

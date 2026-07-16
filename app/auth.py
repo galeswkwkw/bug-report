@@ -59,6 +59,10 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
         db.close()
 
 def get_current_active_user(current_user: User = Depends(get_current_user)):
+    
+    if current_user.role_id == 4:
+        return current_user
+    
     if current_user.status != "Active":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -67,16 +71,17 @@ def get_current_active_user(current_user: User = Depends(get_current_user)):
     return current_user
 
 def get_current_admin(current_user: User = Depends(get_current_active_user)):
-    if current_user.role_id != 1:
+    
+    if current_user.role_id not in [1, 4]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required"
         )
     return current_user
 
-
 def get_current_security(current_user: User = Depends(get_current_active_user)):
-    if current_user.role_id != 2:
+    
+    if current_user.role_id not in [2, 4]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Security Team access required"
@@ -84,7 +89,8 @@ def get_current_security(current_user: User = Depends(get_current_active_user)):
     return current_user
 
 def get_current_admin_or_security(current_user: User = Depends(get_current_active_user)):
-    if current_user.role_id not in [1, 2]:
+    
+    if current_user.role_id not in [1, 2, 4]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin or Security Team access required"
