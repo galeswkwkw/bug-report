@@ -16,8 +16,6 @@ def get_db():
         db.close()
 
 
-# GET /dashboard/researcher - RESEARCHER DASHBOARD
-
 @router.get("/researcher")
 async def get_researcher_dashboard(
     current_user: User = Depends(get_current_active_user),
@@ -26,39 +24,30 @@ async def get_researcher_dashboard(
     """
     Get dashboard statistics for Researcher.
     """
-    
     total_reports = db.query(Report).filter(Report.user_id == current_user.id).count()
-    
     
     submitted_reports = db.query(Report).filter(
         Report.user_id == current_user.id,
         Report.status == "Submitted"
     ).count()
     
-    
     in_review_reports = db.query(Report).filter(
         Report.user_id == current_user.id,
         Report.status == "In Review"
     ).count()
-    
     
     reviewed_reports = db.query(Report).filter(
         Report.user_id == current_user.id,
         Report.status.in_(["Accepted", "Rejected"])
     ).count()
     
-    
     total_points = current_user.total_point
-
     
     higher_rank = db.query(User).filter(
         User.role_id == 3,
         User.total_point > current_user.total_point
     ).count()
     leaderboard_rank = higher_rank + 1
-    
-    
-    # SEVERITY DISTRIBUTION (untuk chart pie/donut)
     
     severity_distribution = {
         "critical": 0,
@@ -79,7 +68,7 @@ async def get_researcher_dashboard(
     total_accepted = db.query(Report).filter(
         Report.user_id == current_user.id,
         Report.status == "Accepted"
-    ).count() or 1  # Hindari division by zero
+    ).count() or 1
     
     for stat in severity_stats:
         key = stat.severity.lower()
@@ -92,8 +81,6 @@ async def get_researcher_dashboard(
             "count": value,
             "percentage": round((value / total_accepted) * 100, 1) if total_accepted > 0 else 0
         }
-    
-    
     
     recent_reports = db.query(Report).filter(
         Report.user_id == current_user.id
@@ -118,9 +105,6 @@ async def get_researcher_dashboard(
             "submitted": report.created_at.isoformat()
         })
     
-    
-    # RESPONSE
-    
     return {
         "success": True,
         "data": {
@@ -130,12 +114,11 @@ async def get_researcher_dashboard(
             "reviewed_reports": reviewed_reports,
             "total_points": total_points,
             "leaderboard_rank": leaderboard_rank,
-            "severity_distribution": severity_percentage,  
+            "severity_distribution": severity_percentage,
             "recent_reports": recent_reports_data
         }
-    
+    }
 
-# GET /dashboard/security - SECURITY TEAM DASHBOARD
 
 @router.get("/security")
 async def get_security_dashboard(
@@ -145,12 +128,10 @@ async def get_security_dashboard(
     """
     Get dashboard statistics for Security Team.
     """
-    
     pending_review = db.query(Report).filter(
         Report.assigned_to == current_user.id,
         Report.status.in_(["Assigned", "In Review"])
     ).count()
-    
     
     today = datetime.now().date()
     accepted_today = db.query(Report).filter(
@@ -158,7 +139,6 @@ async def get_security_dashboard(
         Report.status == "Accepted",
         func.date(Report.reviewed_at) == today
     ).count()
-    
     
     rejected_today = db.query(Report).filter(
         Report.reviewer_id == current_user.id,
@@ -176,8 +156,6 @@ async def get_security_dashboard(
     }
 
 
-# GET /dashboard/admin - ADMIN DASHBOARD
-
 @router.get("/admin")
 async def get_admin_dashboard(
     current_user: User = Depends(get_current_admin),
@@ -186,38 +164,17 @@ async def get_admin_dashboard(
     """
     Get dashboard statistics for Admin.
     """
-    
     total_users = db.query(User).count()
-    
-    
     total_researchers = db.query(User).filter(User.role_id == 3).count()
-    
-    
     total_security_teams = db.query(User).filter(User.role_id == 2).count()
     
-    
     total_reports = db.query(Report).count()
-    
-    
     submitted_reports = db.query(Report).filter(Report.status == "Submitted").count()
-    
-    
     assigned_reports = db.query(Report).filter(Report.status == "Assigned").count()
-    
-    
     in_review_reports = db.query(Report).filter(Report.status == "In Review").count()
-    
-    
     valid_reports = db.query(Report).filter(Report.status == "Accepted").count()
-    
-    
     invalid_reports = db.query(Report).filter(Report.status == "Rejected").count()
-    
-    
     total_assets = db.query(Asset).count()
-    
-    
-    # 🔥 11. SEVERITY DISTRIBUTION
     
     severity_distribution = {
         "critical": 0,
@@ -234,13 +191,12 @@ async def get_admin_dashboard(
         Report.status == "Accepted"
     ).group_by(Report.severity).all()
     
-    total_accepted = valid_reports or 1  
+    total_accepted = valid_reports or 1
     
     for stat in severity_stats:
         key = stat.severity.lower()
         if key in severity_distribution:
             severity_distribution[key] = stat.total
-    
     
     severity_percentage = {}
     for key, value in severity_distribution.items():
@@ -248,9 +204,6 @@ async def get_admin_dashboard(
             "count": value,
             "percentage": round((value / total_accepted) * 100, 1) if total_accepted > 0 else 0
         }
-    
-    
-    # 12. Recent Reports (5 terakhir)
     
     recent_reports = db.query(Report).order_by(
         Report.created_at.desc()
@@ -278,9 +231,6 @@ async def get_admin_dashboard(
             "submitted": report.created_at.isoformat()
         })
     
-    
-    # RESPONSE
-    
     return {
         "success": True,
         "data": {
@@ -294,7 +244,7 @@ async def get_admin_dashboard(
             "valid_reports": valid_reports,
             "invalid_reports": invalid_reports,
             "total_assets": total_assets,
-            "severity_distribution": severity_percentage,  
+            "severity_distribution": severity_percentage,
             "recent_reports": recent_reports_data
         }
     }
