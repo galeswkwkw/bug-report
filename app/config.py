@@ -19,7 +19,7 @@ class Config:
     MINIO_SECURE = os.getenv("MINIO_SECURE", "False").lower() == "true"
     MINIO_BUCKET = os.getenv("MINIO_BUCKET", "uploads")  
 
-    MINIO_PUBLIC_URL = os.getenv("MINIO_PUBLIC_URL", "https://media-bugbounty.sprintasia.net:8443/")
+    MINIO_PUBLIC_URL = os.getenv("MINIO_PUBLIC_URL", "https://media-bugbounty.sprintasia.net:8443")
     
     # Upload
     UPLOAD_DIR = "uploads"
