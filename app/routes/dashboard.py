@@ -16,7 +16,6 @@ def get_db():
         db.close()
 
 
-
 # GET /dashboard/researcher - RESEARCHER DASHBOARD
 
 @router.get("/researcher")
@@ -59,6 +58,43 @@ async def get_researcher_dashboard(
     leaderboard_rank = higher_rank + 1
     
     
+    # SEVERITY DISTRIBUTION (untuk chart pie/donut)
+    
+    severity_distribution = {
+        "critical": 0,
+        "high": 0,
+        "medium": 0,
+        "low": 0,
+        "informational": 0
+    }
+    
+    severity_stats = db.query(
+        Report.severity,
+        func.count(Report.id).label("total")
+    ).filter(
+        Report.user_id == current_user.id,
+        Report.status == "Accepted"
+    ).group_by(Report.severity).all()
+    
+    total_accepted = db.query(Report).filter(
+        Report.user_id == current_user.id,
+        Report.status == "Accepted"
+    ).count() or 1  # Hindari division by zero
+    
+    for stat in severity_stats:
+        key = stat.severity.lower()
+        if key in severity_distribution:
+            severity_distribution[key] = stat.total
+    
+    severity_percentage = {}
+    for key, value in severity_distribution.items():
+        severity_percentage[key] = {
+            "count": value,
+            "percentage": round((value / total_accepted) * 100, 1) if total_accepted > 0 else 0
+        }
+    
+    
+    
     recent_reports = db.query(Report).filter(
         Report.user_id == current_user.id
     ).order_by(
@@ -67,7 +103,6 @@ async def get_researcher_dashboard(
     
     recent_reports_data = []
     for report in recent_reports:
-        
         status_map = {
             "Submitted": "submitted",
             "Assigned": "assigned",
@@ -83,6 +118,9 @@ async def get_researcher_dashboard(
             "submitted": report.created_at.isoformat()
         })
     
+    
+    # RESPONSE
+    
     return {
         "success": True,
         "data": {
@@ -92,11 +130,10 @@ async def get_researcher_dashboard(
             "reviewed_reports": reviewed_reports,
             "total_points": total_points,
             "leaderboard_rank": leaderboard_rank,
+            "severity_distribution": severity_percentage,  
             "recent_reports": recent_reports_data
         }
-    }
-
-
+    
 
 # GET /dashboard/security - SECURITY TEAM DASHBOARD
 
@@ -137,7 +174,6 @@ async def get_security_dashboard(
             "rejected_today": rejected_today
         }
     }
-
 
 
 # GET /dashboard/admin - ADMIN DASHBOARD
@@ -181,15 +217,48 @@ async def get_admin_dashboard(
     total_assets = db.query(Asset).count()
     
     
+    # 🔥 11. SEVERITY DISTRIBUTION
+    
+    severity_distribution = {
+        "critical": 0,
+        "high": 0,
+        "medium": 0,
+        "low": 0,
+        "informational": 0
+    }
+    
+    severity_stats = db.query(
+        Report.severity,
+        func.count(Report.id).label("total")
+    ).filter(
+        Report.status == "Accepted"
+    ).group_by(Report.severity).all()
+    
+    total_accepted = valid_reports or 1  
+    
+    for stat in severity_stats:
+        key = stat.severity.lower()
+        if key in severity_distribution:
+            severity_distribution[key] = stat.total
+    
+    
+    severity_percentage = {}
+    for key, value in severity_distribution.items():
+        severity_percentage[key] = {
+            "count": value,
+            "percentage": round((value / total_accepted) * 100, 1) if total_accepted > 0 else 0
+        }
+    
+    
+    # 12. Recent Reports (5 terakhir)
+    
     recent_reports = db.query(Report).order_by(
         Report.created_at.desc()
     ).limit(5).all()
     
     recent_reports_data = []
     for report in recent_reports:
-        
         researcher = db.query(User).filter(User.id == report.user_id).first()
-        
         assigned_to = db.query(User).filter(User.id == report.assigned_to).first()
         
         status_map = {
@@ -209,6 +278,9 @@ async def get_admin_dashboard(
             "submitted": report.created_at.isoformat()
         })
     
+    
+    # RESPONSE
+    
     return {
         "success": True,
         "data": {
@@ -222,6 +294,7 @@ async def get_admin_dashboard(
             "valid_reports": valid_reports,
             "invalid_reports": invalid_reports,
             "total_assets": total_assets,
+            "severity_distribution": severity_percentage,  
             "recent_reports": recent_reports_data
         }
     }
