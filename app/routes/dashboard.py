@@ -119,7 +119,6 @@ async def get_researcher_dashboard(
         }
     }
 
-
 @router.get("/security")
 async def get_security_dashboard(
     current_user: User = Depends(get_current_security),
@@ -128,30 +127,48 @@ async def get_security_dashboard(
     """
     Get dashboard statistics for Security Team.
     """
-    pending_review = db.query(Report).filter(
+    
+    assigned_count = db.query(Report).filter(
         Report.assigned_to == current_user.id,
-        Report.status.in_(["Assigned", "In Review"])
+        Report.status == "Assigned"
     ).count()
     
-    today = datetime.now().date()
-    accepted_today = db.query(Report).filter(
-        Report.reviewer_id == current_user.id,
-        Report.status == "Accepted",
-        func.date(Report.reviewed_at) == today
+    
+    in_review_count = db.query(Report).filter(
+        Report.assigned_to == current_user.id,
+        Report.status == "In Review"
     ).count()
     
-    rejected_today = db.query(Report).filter(
-        Report.reviewer_id == current_user.id,
-        Report.status == "Rejected",
-        func.date(Report.reviewed_at) == today
+    
+    reviewed_count = db.query(Report).filter(
+        Report.assigned_to == current_user.id,
+        Report.status.in_(["Accepted", "Rejected"])
     ).count()
+    
+    
+    valid_count = db.query(Report).filter(
+        Report.assigned_to == current_user.id,
+        Report.status == "Accepted"
+    ).count()
+    
+    
+    invalid_count = db.query(Report).filter(
+        Report.assigned_to == current_user.id,
+        Report.status == "Rejected"
+    ).count()
+    
+    
+    total_assigned = assigned_count + in_review_count + reviewed_count
     
     return {
         "success": True,
         "data": {
-            "pending_review": pending_review,
-            "accepted_today": accepted_today,
-            "rejected_today": rejected_today
+            "assigned_reports": assigned_count,
+            "in_review": in_review_count,
+            "reviewed_reports": reviewed_count,
+            "valid_reports": valid_count,
+            "invalid_reports": invalid_count,
+            "total_assigned": total_assigned
         }
     }
 
