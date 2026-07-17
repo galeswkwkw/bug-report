@@ -184,6 +184,7 @@ class ReportResponse(BaseModel):
     user_id: int
     asset_id: int
     reviewer_id: Optional[int] = None
+    reviewer: Optional[dict] = None
     title: str
     category: str
     description: str
@@ -195,6 +196,7 @@ class ReportResponse(BaseModel):
     status: str
     review_comment: Optional[str]
     reject_reason: Optional[str]
+    reviewed_at: Optional[datetime] = None
     accepted_at: Optional[datetime] = None
     rejected_at: Optional[datetime] = None
     created_at: datetime

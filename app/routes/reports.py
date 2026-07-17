@@ -56,14 +56,24 @@ async def get_reports(
     result = []
     for report in reports:
         asset = db.query(Asset).filter(Asset.id == report.asset_id).first()
-  
         user = db.query(User).filter(User.id == report.user_id).first()
+        
+      
+        reviewer_data = None
+        if report.reviewer_id:
+            reviewer = db.query(User).filter(User.id == report.reviewer_id).first()
+            if reviewer:
+                reviewer_data = {
+                    "id": reviewer.id,
+                    "name": reviewer.full_name
+                }
         
         result.append(ReportResponse(
             id=report.id,
             user_id=report.user_id,
             asset_id=report.asset_id,
             reviewer_id=report.reviewer_id,
+            reviewer=reviewer_data, 
             title=report.title,
             category=report.category,
             description=report.description,
@@ -75,6 +85,8 @@ async def get_reports(
             status=report.status,
             review_comment=report.review_comment,
             reject_reason=report.reject_reason,
+            accepted_at=report.accepted_at,
+            rejected_at=report.rejected_at,
             reviewed_at=report.reviewed_at,
             created_at=report.created_at,
             updated_at=report.updated_at,

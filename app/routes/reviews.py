@@ -38,7 +38,6 @@ def get_current_admin_or_security(current_user: User = Depends(get_current_activ
     return current_user
 
 
-
 # GET /reviews/my-assigned - LIST ASSIGNED REPORTS (ADMIN & SECURITY)
 @router.get("/my-assigned")
 async def get_my_assigned_reviews(
@@ -55,7 +54,7 @@ async def get_my_assigned_reviews(
     - status: filter by status (assigned, in_review, reviewed)
     """
     
-    if current_user.role_id == 1:  # Admin
+    if current_user.role_id == 1:  
         query = db.query(Report).filter(
             Report.status.in_(["Assigned", "In Review", "Accepted", "Rejected"])
         )
@@ -72,10 +71,7 @@ async def get_my_assigned_reviews(
     elif status == "reviewed":
         query = query.filter(Report.status.in_(["Accepted", "Rejected"]))
     
-    
-    
     reports = query.order_by(Report.created_at.desc()).all()
-    
     
     result = []
     for report in reports:
@@ -90,6 +86,7 @@ async def get_my_assigned_reviews(
             "reporter": user.full_name if user else None,
             "severity": report.severity,
             "status": report.status,
+            "reviewed_at": report.reviewed_at,  
             "created_at": report.created_at,
             "updated_at": report.updated_at
         })
