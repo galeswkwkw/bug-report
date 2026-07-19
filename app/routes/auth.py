@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends, status, UploadFile, File, Form
 from sqlalchemy.orm import Session
+from app.services.notification_service import NotificationService
 from sqlalchemy.exc import IntegrityError
 from datetime import timedelta
 import uuid
@@ -27,10 +28,6 @@ def get_db():
     finally:
         db.close()
 
-
-# ============================================================
-# POST /auth/register
-# ============================================================
 @router.post("/register", response_model=RegisterResponse)
 async def register(
     request: dict,
@@ -112,6 +109,15 @@ async def register(
     except IntegrityError as e:
         db.rollback()
         raise HTTPException(status_code=400, detail=f"Registration failed: {str(e)}")
+    
+    admin = db.query(User).filter(User.role_id == 1).first()
+    if admin:
+        from app.services.notification_service import NotificationService
+        NotificationService.create_registration_notification(
+            db=db,
+            admin_id=admin.id,
+            user_name=new_user.full_name
+        )
     
     return RegisterResponse(
         success=True,

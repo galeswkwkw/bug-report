@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.sql import func
 from datetime import datetime
 from typing import Optional
+from app.services.notification_service import NotificationService
 
 from app.database import SessionLocal
 from app.models import Report, Asset, User, PointRule, ReportEvidence
@@ -132,11 +133,21 @@ async def start_review(
     db.commit()
     db.refresh(report)
     
+    admin = db.query(User).filter(User.role_id == 1).first()
+    if admin:
+        NotificationService.create_review_started_notification(
+            db=db,
+            researcher_id=report.user_id,
+            admin_id=admin.id,
+            report_id=report.id,
+            report_title=report.title
+        )
+    
     return {
         "success": True,
         "message": f"Review started for report {report_id}",
         "report_id": report.id,
-        "status": report.status, 
+        "status": report.status,
         "started_at": report.reviewed_at
     }
 # PUT /reviews/{id} - REVIEW REPORT (ACCEPT/REJECT)
@@ -233,6 +244,16 @@ async def review_report(
     asset = db.query(Asset).filter(Asset.id == report.asset_id).first()
     user = db.query(User).filter(User.id == report.user_id).first()
     
+    admin = db.query(User).filter(User.role_id == 1).first()
+    if admin:
+        NotificationService.create_review_completed_notification(
+            db=db,
+            researcher_id=report.user_id,
+            admin_id=admin.id,
+            report_id=report.id,
+            report_title=report.title,
+            status=report.status  
+        )
     return ReportResponse(
         id=report.id,
         user_id=report.user_id,

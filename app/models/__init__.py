@@ -7,6 +7,7 @@ from app.models.point_rule import PointRule
 from app.models.asset import Asset
 from app.models.report import Report
 from app.models.report_evidence import ReportEvidence 
+from app.models.notification import Notification
 
 __all__ = [
     "Role",
@@ -17,5 +18,6 @@ __all__ = [
     "PointRule",
     "Asset",
     "Report",
-    "ReportEvidence" 
+    "ReportEvidence",
+    "Notification" 
 ]

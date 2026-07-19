@@ -196,6 +196,7 @@ class ReportResponse(BaseModel):
     status: str
     review_comment: Optional[str]
     reject_reason: Optional[str]
+    assignment_comment: Optional[str] = None 
     reviewed_at: Optional[datetime] = None
     accepted_at: Optional[datetime] = None
     rejected_at: Optional[datetime] = None
@@ -203,6 +204,7 @@ class ReportResponse(BaseModel):
     updated_at: datetime
     asset_name: Optional[str] = None
     user_name: Optional[str] = None
+    can_edit: bool = False
 
 class ReportEvidenceResponse(BaseModel):
     id: int
@@ -224,3 +226,32 @@ class ReviewRequest(BaseModel):
     severity: Optional[str] = Field(None, pattern="^(Critical|High|Medium|Low|Informational)$")
     comment: Optional[str] = None
     reject_reason: Optional[str] = None
+
+
+class NotificationResponse(BaseModel):
+    id: int
+    title: str
+    message: str
+    type: str
+    reference_id: Optional[int] = None
+    is_read: bool
+    created_at: datetime
+
+class NotificationListResponse(BaseModel):
+    page: int
+    limit: int
+    total: int
+    data: List[NotificationResponse]
+
+class AssignReportRequest(BaseModel):
+    security_team_id: int
+    comment: Optional[str] = None  
+
+class ReportUpdateByResearcherRequest(BaseModel):
+    title: Optional[str] = None
+    category: Optional[str] = None
+    description: Optional[str] = None
+    steps_to_reproduce: Optional[str] = None
+    steps_to_resolve: Optional[str] = None
+    impact: Optional[str] = None
+    severity: Optional[str] = Field(None, pattern="^(Critical|High|Medium|Low|Informational)$")

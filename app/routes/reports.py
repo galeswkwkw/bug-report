@@ -1,9 +1,11 @@
+from typing import Optional 
 from fastapi import APIRouter, HTTPException, Depends, status, UploadFile, File
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime
 import uuid
 import os
+
 
 from app.database import SessionLocal
 from app.models import Report, Asset, User, PointRule, ReportEvidence
@@ -12,6 +14,9 @@ from app.auth import get_current_active_user, get_current_admin
 from app.auth import get_current_active_user
 from app.minio_client import minio_client
 from app.config import Config
+from app.services.notification_service import NotificationService
+from app.schemas import AssignReportRequest
+from app.schemas import ReportUpdateByResearcherRequest
 
 router = APIRouter(prefix="/reports", tags=["Reports"])
 
@@ -85,6 +90,7 @@ async def get_reports(
             status=report.status,
             review_comment=report.review_comment,
             reject_reason=report.reject_reason,
+            assignment_comment=report.assignment_comment,
             accepted_at=report.accepted_at,
             rejected_at=report.rejected_at,
             reviewed_at=report.reviewed_at,
@@ -96,6 +102,120 @@ async def get_reports(
     
     return result
 
+# GET /reports/export - EXPORT REPORTS (ADMIN ONLY)
+@router.get("/export")
+async def export_reports(
+    current_user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+    status: Optional[str] = None,
+    severity: Optional[str] = None,
+    search: Optional[str] = None,
+    format: str = "xlsx"
+):
+    """
+    Export reports based on filters.
+    - Admin only
+    - Supported formats: xlsx, csv
+    - Filters: status, severity, search
+    """
+    import io
+    import csv
+    from openpyxl import Workbook
+    from fastapi.responses import StreamingResponse
+    
+    # 1. Build query
+    query = db.query(Report)
+    
+    # 2. Apply filters
+    if status:
+        if status == "valid":
+            query = query.filter(Report.status == "Accepted")
+        elif status == "invalid":
+            query = query.filter(Report.status == "Rejected")
+        elif status == "in_review":
+            query = query.filter(Report.status == "In Review")
+        elif status == "assigned":
+            query = query.filter(Report.status == "Assigned")
+        elif status == "submitted":
+            query = query.filter(Report.status == "Submitted")
+        else:
+            query = query.filter(Report.status == status)
+    
+    if severity:
+        query = query.filter(Report.severity.ilike(f"%{severity}%"))
+    
+    if search:
+        query = query.filter(
+            (Report.title.ilike(f"%{search}%")) |
+            (Report.description.ilike(f"%{search}%"))
+        )
+    
+    # 3. Get data
+    reports = query.order_by(Report.created_at.desc()).all()
+    
+    # 4. Build data rows
+    data = []
+    for report in reports:
+        user = db.query(User).filter(User.id == report.user_id).first()
+        asset = db.query(Asset).filter(Asset.id == report.asset_id).first()
+        reviewer = db.query(User).filter(User.id == report.reviewer_id).first()
+        assigned_to = db.query(User).filter(User.id == report.assigned_to).first()
+        
+        data.append({
+            "Report ID": report.id,
+            "Title": report.title,
+            "Researcher Name": user.full_name if user else None,
+            "Asset": asset.name if asset else None,
+            "Category": report.category,
+            "Severity": report.severity,
+            "Status": report.status,
+            "Assigned To": assigned_to.full_name if assigned_to else None,
+            "Submitted At": report.created_at.strftime("%Y-%m-%d %H:%M:%S") if report.created_at else None,
+            "Reviewed At": report.reviewed_at.strftime("%Y-%m-%d %H:%M:%S") if report.reviewed_at else None,
+        })
+    
+    # 5. Generate filename
+    filename = f"reports_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    
+    # 6. Export berdasarkan format
+    if format.lower() == "csv":
+        output = io.StringIO()
+        if data:
+            writer = csv.DictWriter(output, fieldnames=data[0].keys())
+            writer.writeheader()
+            writer.writerows(data)
+        else:
+            output.write("No data found")
+        
+        return StreamingResponse(
+            iter([output.getvalue()]),
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename={filename}.csv"}
+        )
+    
+    else:  # default xlsx
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Reports"
+        
+        if data:
+            # Headers
+            headers = list(data[0].keys())
+            ws.append(headers)
+            
+            # Data rows
+            for row in data:
+                ws.append(list(row.values()))
+        
+        output = io.BytesIO()
+        wb.save(output)
+        output.seek(0)
+        
+        return StreamingResponse(
+            output,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename={filename}.xlsx"}
+        )
 # # 4. GET /my-assigned - GET ASSIGNED REPORTS
 # # ============================================================
 # @router.get("/my-assigned")
@@ -365,16 +485,16 @@ async def get_reports(
 #     }
 
 # PUT /reports/{id}/assign - ASSIGN REPORT TO SECURITY TEAM (ADMIN ONLY)
-@router.put("/{report_id}/assign")  # ← HAPUS "reports/"!
+@router.put("/{report_id}/assign")
 async def assign_report(
     report_id: int,
-    request: dict,
+    request: AssignReportRequest,
     current_user: User = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
     """
     Assign report to a Security Team member (Admin only).
-    Request: { "security_team_id": 15 }
+    Request: { "security_team_id": 15, "comment": "Please review this urgently" }
     """
     report = db.query(Report).filter(Report.id == report_id).first()
     if not report:
@@ -386,38 +506,42 @@ async def assign_report(
             detail=f"Cannot assign report with status: {report.status}"
         )
     
-    security_team_id = request.get("security_team_id")
-    if not security_team_id:
-        raise HTTPException(status_code=400, detail="security_team_id is required")
-    
     security_team = db.query(User).filter(
-        User.id == security_team_id,
+        User.id == request.security_team_id,
         User.role_id == 2
     ).first()
     
     if not security_team:
         raise HTTPException(
             status_code=404,
-            detail=f"Security Team member with ID {security_team_id} not found"
+            detail=f"Security Team member with ID {request.security_team_id} not found"
         )
     
-    report.assigned_to = security_team_id
+    report.assigned_to = request.security_team_id
     report.status = "Assigned"
+    report.assignment_comment = request.comment  
     report.updated_at = datetime.now()
     
     db.commit()
     db.refresh(report)
     
+    NotificationService.create_assignment_notification(
+        db=db,
+        security_id=request.security_team_id,
+        report_id=report.id,
+        report_title=report.title,
+        comment=request.comment
+    )
+    
     return {
         "success": True,
         "message": f"Report {report_id} assigned to {security_team.full_name}",
         "report_id": report.id,
-        "assigned_to": security_team_id,
+        "assigned_to": request.security_team_id,
         "assigned_to_name": security_team.full_name,
+        "comment": request.comment,
         "status": report.status
     }
-
-
 # GET /reports/{id} - GET REPORT BY ID
 @router.get("/{report_id}", response_model=ReportResponse)
 async def get_report_by_id(
@@ -444,7 +568,6 @@ async def get_report_by_id(
     asset = db.query(Asset).filter(Asset.id == report.asset_id).first()
     user = db.query(User).filter(User.id == report.user_id).first()
     
-    
     reviewer_data = None
     if report.reviewer_id:
         reviewer = db.query(User).filter(User.id == report.reviewer_id).first()
@@ -454,12 +577,15 @@ async def get_report_by_id(
                 "name": reviewer.full_name
             }
     
+    #
+    can_edit = (report.status == "Submitted" and report.user_id == current_user.id)
+    
     return ReportResponse(
         id=report.id,
         user_id=report.user_id,
         asset_id=report.asset_id,
         reviewer_id=report.reviewer_id,
-        reviewer=reviewer_data, 
+        reviewer=reviewer_data,
         title=report.title,
         category=report.category,
         description=report.description,
@@ -471,12 +597,92 @@ async def get_report_by_id(
         status=report.status,
         review_comment=report.review_comment,
         reject_reason=report.reject_reason,
+        assignment_comment=report.assignment_comment,
         reviewed_at=report.reviewed_at,
+        accepted_at=report.accepted_at,
+        rejected_at=report.rejected_at,
         created_at=report.created_at,
         updated_at=report.updated_at,
         asset_name=asset.name if asset else None,
-        user_name=user.full_name if user else None
+        user_name=user.full_name if user else None,
+        can_edit=can_edit  
     )
+
+# PUT /reports/{id} - EDIT REPORT BY RESEARCHER (HANYA JIKA SUBMITTED)
+@router.put("/{report_id}")
+async def update_report_by_researcher(
+    report_id: int,
+    request: ReportUpdateByResearcherRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Edit report by Researcher.
+    Only reports with status 'Submitted' can be edited.
+    Only the owner of the report can edit it.
+    """
+    
+    report = db.query(Report).filter(Report.id == report_id).first()
+    if not report:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Report with ID {report_id} not found"
+        )
+    
+    
+    if report.user_id != current_user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="You are not authorized to edit this report"
+        )
+    
+    
+    if report.status != "Submitted":
+        raise HTTPException(
+            status_code=400,
+            detail="This report can no longer be edited because it is already under review."
+        )
+    
+    
+    if request.title is not None:
+        report.title = request.title
+    if request.category is not None:
+        report.category = request.category
+    if request.description is not None:
+        report.description = request.description
+    if request.steps_to_reproduce is not None:
+        report.steps_to_reproduce = request.steps_to_reproduce
+    if request.steps_to_resolve is not None:
+        report.steps_to_resolve = request.steps_to_resolve
+    if request.impact is not None:
+        report.impact = request.impact
+    if request.severity is not None:
+        valid_severities = ["Critical", "High", "Medium", "Low", "Informational"]
+        if request.severity not in valid_severities:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid severity. Must be one of: {', '.join(valid_severities)}"
+            )
+        report.severity = request.severity
+    
+    report.updated_at = datetime.now()
+    
+    try:
+        db.commit()
+        db.refresh(report)
+    except IntegrityError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=400,
+            detail=f"Failed to update report: {str(e)}"
+        )
+    
+    return {
+        "success": True,
+        "message": "Report updated successfully.",
+        "report_id": report.id,
+        "updated_at": report.updated_at
+    }
 
 # PUT /reports/{id} - UPDATE REPORT STATUS (ADMIN ONLY)
 @router.put("/{report_id}", response_model=ReportResponse)
@@ -687,7 +893,6 @@ async def get_report_evidences(
         )
     
     return result
-
 # POST /reports - CREATE REPORT
 @router.post("", response_model=ReportResponse, status_code=status.HTTP_201_CREATED)
 async def create_report(
@@ -706,13 +911,13 @@ async def create_report(
             detail=f"Asset with ID {request.asset_id} not found"
         )
     
-    # 2. 🔥 HANDLE SEVERITY OPSIONAL
+    # 2. HANDLE SEVERITY OPSIONAL
     if request.severity is None or request.severity == "":
         severity = "Low"
     else:
         severity = request.severity
     
-    # 3. Validasi severity (kalau diisi)
+    # 3. Validasi severity
     valid_severities = ["Critical", "High", "Medium", "Low", "Informational"]
     if severity not in valid_severities:
         raise HTTPException(
@@ -750,7 +955,16 @@ async def create_report(
             detail=f"Failed to create report: {str(e)}"
         )
     
-    # 6. Response
+    admin = db.query(User).filter(User.role_id == 1).first()
+    if admin:
+        NotificationService.create_report_notification(
+            db=db,
+            admin_id=admin.id,
+            report_id=new_report.id,
+            report_title=new_report.title
+        )
+    
+    # 6. Response (HANYA 1 RETURN!)
     return ReportResponse(
         id=new_report.id,
         user_id=new_report.user_id,

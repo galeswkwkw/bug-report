@@ -26,6 +26,7 @@ class Report(Base):
     review_comment = Column(Text, nullable=True)
     reject_reason = Column(Text, nullable=True)
     reviewed_at = Column(TIMESTAMP, nullable=True)
+    assignment_comment = Column(Text, nullable=True) 
     
     
     accepted_at = Column(TIMESTAMP, nullable=True)
