@@ -665,7 +665,7 @@ async def update_evidence(
     if file_size > Config.MAX_FILE_SIZE:
         raise HTTPException(
             status_code=400,
-            detail=f"File too large. Max size: 10MB. Your file: {file_size} bytes"
+            detail=f"File too large. Max size: 100MB. Your file: {file_size} bytes"
         )
     
     
@@ -1146,7 +1146,7 @@ async def upload_evidence(
     if file_size > Config.MAX_FILE_SIZE:
         raise HTTPException(
             status_code=400,
-            detail=f"File too large. Max size: 10MB. Your file: {file_size} bytes"
+            detail=f"File too large. Max size: 100MB. Your file: {file_size} bytes"
         )
     
     # 5. Generate object name
