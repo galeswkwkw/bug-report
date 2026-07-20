@@ -607,9 +607,8 @@ async def get_report_by_id(
         user_name=user.full_name if user else None,
         can_edit=can_edit  
     )
-
+    
 # PUT /reports/evidence/{id} - UPDATE EVIDENCE (ADMIN OR OWNER)
-
 @router.put("/evidence/{evidence_id}", response_model=ReportEvidenceResponse)
 async def update_evidence(
     evidence_id: int,
@@ -621,6 +620,7 @@ async def update_evidence(
     Update evidence file by ID.
     - Admin: can update any evidence
     - Researcher: only their own evidence (report owner)
+    - ONLY allowed if report status is 'Submitted'
     """
     
     evidence = db.query(ReportEvidence).filter(ReportEvidence.id == evidence_id).first()
@@ -630,14 +630,12 @@ async def update_evidence(
             detail=f"Evidence with ID {evidence_id} not found"
         )
     
-    
     report = db.query(Report).filter(Report.id == evidence.report_id).first()
     if not report:
         raise HTTPException(
             status_code=404,
             detail=f"Report with ID {evidence.report_id} not found"
         )
-    
     
     is_admin = current_user.role_id == 1
     is_owner = report.user_id == current_user.id
@@ -648,13 +646,11 @@ async def update_evidence(
             detail="You are not authorized to update this evidence"
         )
     
-    
-    if report.status in ["Accepted", "Rejected"]:
+    if report.status != "Submitted":
         raise HTTPException(
             status_code=400,
-            detail=f"Cannot update evidence for report with status: {report.status}"
+            detail=f"Cannot update evidence for report with status: {report.status}. Only Submitted reports can update evidence."
         )
-    
     
     file_content = await file.read()
     file_size = len(file_content)
@@ -668,7 +664,6 @@ async def update_evidence(
             detail=f"File too large. Max size: 100MB. Your file: {file_size} bytes"
         )
     
-    
     try:
         minio_client.client.remove_object(
             evidence.bucket_name,
@@ -678,18 +673,15 @@ async def update_evidence(
     except Exception as e:
         print(f"⚠️ Failed to delete old file: {str(e)}")
     
-    
     file_extension = os.path.splitext(file.filename)[1]
     object_name = f"report_evidences/{evidence.report_id}/{uuid.uuid4().hex[:8]}{file_extension}"
     
     try:
-        
         minio_client.upload_file(
             object_name=object_name,
             file_content=file_content,
             content_type=file.content_type
         )
-        
         
         evidence.file_name = file.filename
         evidence.object_name = object_name
@@ -706,7 +698,6 @@ async def update_evidence(
             status_code=500,
             detail=f"Failed to update evidence: {str(e)}"
         )
-    
     
     presigned_url = minio_client.get_presigned_url(
         object_name=object_name,
