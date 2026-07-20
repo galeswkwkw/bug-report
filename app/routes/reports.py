@@ -483,7 +483,6 @@ async def export_reports(
 #         "updated_at": report.updated_at,
 #         "evidences": evidence_list
 #     }
-
 # PUT /reports/{id}/assign - ASSIGN REPORT TO SECURITY TEAM (ADMIN ONLY)
 @router.put("/{report_id}/assign")
 async def assign_report(
@@ -529,8 +528,7 @@ async def assign_report(
         db=db,
         security_id=request.security_team_id,
         report_id=report.id,
-        report_title=report.title,
-        comment=request.comment
+        report_title=report.title
     )
     
     return {
@@ -539,9 +537,11 @@ async def assign_report(
         "report_id": report.id,
         "assigned_to": request.security_team_id,
         "assigned_to_name": security_team.full_name,
-        "comment": request.comment,
+        "comment": request.comment,  
         "status": report.status
     }
+
+    
 # GET /reports/{id} - GET REPORT BY ID
 @router.get("/{report_id}", response_model=ReportResponse)
 async def get_report_by_id(
