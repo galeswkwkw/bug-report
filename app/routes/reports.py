@@ -541,7 +541,7 @@ async def assign_report(
         "status": report.status
     }
 
-    
+
 # GET /reports/{id} - GET REPORT BY ID
 @router.get("/{report_id}", response_model=ReportResponse)
 async def get_report_by_id(
@@ -606,6 +606,123 @@ async def get_report_by_id(
         asset_name=asset.name if asset else None,
         user_name=user.full_name if user else None,
         can_edit=can_edit  
+    )
+
+# PUT /reports/evidence/{id} - UPDATE EVIDENCE (ADMIN OR OWNER)
+
+@router.put("/evidence/{evidence_id}", response_model=ReportEvidenceResponse)
+async def update_evidence(
+    evidence_id: int,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Update evidence file by ID.
+    - Admin: can update any evidence
+    - Researcher: only their own evidence (report owner)
+    """
+    
+    evidence = db.query(ReportEvidence).filter(ReportEvidence.id == evidence_id).first()
+    if not evidence:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Evidence with ID {evidence_id} not found"
+        )
+    
+    
+    report = db.query(Report).filter(Report.id == evidence.report_id).first()
+    if not report:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Report with ID {evidence.report_id} not found"
+        )
+    
+    
+    is_admin = current_user.role_id == 1
+    is_owner = report.user_id == current_user.id
+    
+    if not is_admin and not is_owner:
+        raise HTTPException(
+            status_code=403,
+            detail="You are not authorized to update this evidence"
+        )
+    
+    
+    if report.status in ["Accepted", "Rejected"]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot update evidence for report with status: {report.status}"
+        )
+    
+    
+    file_content = await file.read()
+    file_size = len(file_content)
+    
+    if file_size == 0:
+        raise HTTPException(status_code=400, detail="File is empty!")
+    
+    if file_size > Config.MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File too large. Max size: 10MB. Your file: {file_size} bytes"
+        )
+    
+    
+    try:
+        minio_client.client.remove_object(
+            evidence.bucket_name,
+            evidence.object_name
+        )
+        print(f"✅ Deleted old file from MinIO: {evidence.object_name}")
+    except Exception as e:
+        print(f"⚠️ Failed to delete old file: {str(e)}")
+    
+    
+    file_extension = os.path.splitext(file.filename)[1]
+    object_name = f"report_evidences/{evidence.report_id}/{uuid.uuid4().hex[:8]}{file_extension}"
+    
+    try:
+        
+        minio_client.upload_file(
+            object_name=object_name,
+            file_content=file_content,
+            content_type=file.content_type
+        )
+        
+        
+        evidence.file_name = file.filename
+        evidence.object_name = object_name
+        evidence.bucket_name = "uploads"
+        evidence.file_size = file_size
+        evidence.content_type = file.content_type or "application/octet-stream"
+        
+        db.commit()
+        db.refresh(evidence)
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to update evidence: {str(e)}"
+        )
+    
+    
+    presigned_url = minio_client.get_presigned_url(
+        object_name=object_name,
+        expiry=3600
+    )
+    
+    return ReportEvidenceResponse(
+        id=evidence.id,
+        report_id=evidence.report_id,
+        file_name=evidence.file_name,
+        object_name=evidence.object_name,
+        bucket_name=evidence.bucket_name,
+        file_size=evidence.file_size,
+        content_type=evidence.content_type,
+        created_at=evidence.created_at,
+        url=presigned_url
     )
 
 # PUT /reports/{id} - EDIT REPORT BY RESEARCHER (HANYA JIKA SUBMITTED)

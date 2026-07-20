@@ -1,6 +1,7 @@
 from pydantic import BaseModel, EmailStr, Field, validator
 from typing import Optional, List
 from datetime import datetime
+from fastapi import File, UploadFile
 
 # AUTH SCHEMAS
 
@@ -216,6 +217,9 @@ class ReportEvidenceResponse(BaseModel):
     content_type: str
     created_at: datetime
     url: Optional[str] = None
+
+class ReportEvidenceUpdateRequest(BaseModel):
+    file: UploadFile = File(...)
 
 class ReportUpdateRequest(BaseModel):
     status: Optional[str] = Field(None, pattern="^(Accepted|Rejected)$")
