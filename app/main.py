@@ -4,7 +4,7 @@ from app.routes import auth, profile, admin
 from app.database import engine, Base
 from app.routes import auth, profile, admin, assets, reports, reviews, dashboard,leaderboard, monitoring, notifications
 
-# Create tables
+
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
@@ -13,15 +13,16 @@ app = FastAPI(
     version="1.0.0"
 )
 
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["https://bugbounty.sprintasia.net"],  
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],  
+    allow_headers=["Authorization", "Content-Type"], 
 )
 
-# Include routers
+
 app.include_router(auth.router)
 app.include_router(profile.router)
 app.include_router(admin.router)
@@ -44,4 +45,3 @@ async def root():
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
-

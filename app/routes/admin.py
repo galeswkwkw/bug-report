@@ -22,9 +22,9 @@ def get_db():
         db.close()
 
 
-# ============================================================
+
 # GET /admin/users - GET ALL USERS (ADMIN ONLY) - DENGAN DOKUMEN!
-# ============================================================
+
 @router.get("/users")
 async def get_all_users(
     current_user: User = Depends(get_current_admin),
@@ -129,9 +129,9 @@ async def get_all_users(
     }
 
 
-# ============================================================
+
 # GET /admin/users/pending - GET PENDING USERS (DENGAN DOKUMEN)
-# ============================================================
+
 @router.get("/users/pending")
 async def get_pending_users(
     current_user: User = Depends(get_current_admin),
@@ -180,9 +180,9 @@ async def get_pending_users(
     }
 
 
-# ============================================================
+
 # GET /admin/users/approved - GET APPROVED USERS
-# ============================================================
+
 @router.get("/users/approved")
 async def get_approved_users(
     current_user: User = Depends(get_current_admin),
@@ -220,9 +220,9 @@ async def get_approved_users(
     }
 
 
-# ============================================================
+
 # GET /admin/users/rejected - GET REJECTED USERS
-# ============================================================
+
 @router.get("/users/rejected")
 async def get_rejected_users(
     current_user: User = Depends(get_current_admin),
@@ -261,9 +261,9 @@ async def get_rejected_users(
     }
 
 
-# ============================================================
+
 # GET /admin/users/{id} - GET USER DETAIL
-# ============================================================
+
 @router.get("/users/{user_id}")
 async def get_user_detail(
     user_id: int,
@@ -337,9 +337,9 @@ async def get_user_detail(
     }
 
 
-# ============================================================
+
 # PUT /admin/users/{id} - UPDATE USER DATA
-# ============================================================
+
 @router.put("/users/{user_id}")
 async def update_user(
     user_id: int,
@@ -416,9 +416,9 @@ async def update_user(
     }
 
 
-# ============================================================
+
 # PUT /admin/users/{id}/status - UPDATE USER STATUS
-# ============================================================
+
 @router.put("/users/{user_id}/status")
 async def update_user_status(
     user_id: int,
@@ -473,9 +473,9 @@ async def update_user_status(
     }
 
 
-# ============================================================
+
 # PUT /admin/users/{id}/approve - APPROVE USER
-# ============================================================
+
 @router.put("/users/{user_id}/approve", response_model=AdminActionResponse)
 async def approve_user(
     user_id: int,
@@ -508,9 +508,9 @@ async def approve_user(
     )
 
 
-# ============================================================
+
 # PUT /admin/users/{id}/reject - REJECT USER
-# ============================================================
+
 @router.put("/users/{user_id}/reject", response_model=AdminActionResponse)
 async def reject_user(
     user_id: int,
@@ -543,9 +543,9 @@ async def reject_user(
     )
 
 
-# ============================================================
+
 # POST /admin/security-teams - ADD SECURITY TEAM MEMBER
-# ============================================================
+
 @router.post("/security-teams")
 async def create_security_team(
     request: dict,
@@ -615,9 +615,9 @@ async def create_security_team(
     }
 
 
-# ============================================================
+
 # GET /admin/security-teams - LIST SECURITY TEAM MEMBERS
-# ============================================================
+
 @router.get("/security-teams")
 async def get_security_teams(
     current_user: User = Depends(get_current_admin),

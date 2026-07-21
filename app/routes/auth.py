@@ -126,7 +126,6 @@ async def register(
         user_id=new_user.id
     )
 
-
 # ============================================================
 # POST /auth/login
 # ============================================================
@@ -157,10 +156,16 @@ async def login(
             detail=f"Account is {user.status}. Please wait for admin approval."
         )
     
+    # ✅ ACCESS_TOKEN_EXPIRE_MINUTES: 20 menit
     access_token_expires = timedelta(minutes=Config.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         data={"sub": str(user.id), "email": user.email, "role": user.role_id},
         expires_delta=access_token_expires
+    )
+    
+    # ✅ Tambahkan Refresh Token (7 hari)
+    refresh_token = create_refresh_token(
+        data={"sub": str(user.id), "email": user.email, "role": user.role_id}
     )
     
     role_name = db.query(Role).filter(Role.id == user.role_id).first()
@@ -170,7 +175,9 @@ async def login(
         success=True,
         message="Login successful",
         access_token=access_token,
+        refresh_token=refresh_token,  # ✅ Tambahkan ini
         token_type="bearer",
+        expires_in=Config.ACCESS_TOKEN_EXPIRE_MINUTES * 60,  # ✅ Tambahkan ini (dalam detik)
         user={
             "id": user.id,
             "full_name": user.full_name,
