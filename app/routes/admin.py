@@ -20,86 +20,7 @@ def get_db():
         yield db
     finally:
         db.close()
-# GET /admin/users/{id} - GET USER DETAIL (ADMIN ONLY)
-@router.get("/users/{user_id}")
-async def get_user_detail(
-    user_id: int,
-    current_user: User = Depends(get_current_admin),
-    db: Session = Depends(get_db)
-):
-    """
-    Get user detail by ID (Admin only).
-    """
-
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(
-            status_code=404,
-            detail=f"User with ID {user_id} not found"
-        )
-    
-
-    role = db.query(Role).filter(Role.id == user.role_id).first()
-    
-
-    department = db.query(Department).filter(Department.id == user.department_id).first()
-    
-
-    documents = db.query(UserDocument).filter(UserDocument.user_id == user.id).all()
-    
-
-    total_reports = db.query(Report).filter(Report.user_id == user.id).count()
-    accepted_reports = db.query(Report).filter(
-        Report.user_id == user.id,
-        Report.status == "Accepted"
-    ).count()
-    rejected_reports = db.query(Report).filter(
-        Report.user_id == user.id,
-        Report.status == "Rejected"
-    ).count()
-    
-
-    doc_list = []
-    for doc in documents:
-        doc_type = db.query(DocumentType).filter(DocumentType.id == doc.document_type_id).first()
-        doc_list.append({
-            "id": doc.id,
-            "document_type": doc_type.name if doc_type else None,
-            "file_name": doc.file_name,
-            "object_name": doc.object_name,
-            "file_size": doc.file_size,
-            "content_type": doc.content_type,
-            "created_at": doc.created_at
-        })
-    
-    return {
-        "success": True,
-        "data": {
-            "id": user.id,
-            "full_name": user.full_name,
-            "email": user.email,
-            "phone_number": user.phone_number,
-            "researcher_type": user.researcher_type,
-            "employee_id": user.employee_id,
-            "company": user.company,
-            "position": user.position,
-            "office_location": user.office_location,
-            "role_id": user.role_id,
-            "role_name": role.name if role else None,
-            "department_id": user.department_id,
-            "department_name": department.name if department else None,
-            "total_point": user.total_point,
-            "status": user.status,
-            "created_at": user.created_at,
-            "updated_at": user.updated_at,
-            "documents": doc_list,
-            "statistics": {
-                "total_reports": total_reports,
-                "accepted_reports": accepted_reports,
-                "rejected_reports": rejected_reports
-            }
-        }
-    }
+        
 
 
 # GET /admin/users - GET ALL USERS (ADMIN ONLY)
@@ -655,6 +576,86 @@ async def update_user_status(
         }
     }
 
+# GET /admin/users/{id} - GET USER DETAIL (ADMIN ONLY)
+@router.get("/users/{user_id}")
+async def get_user_detail(
+    user_id: int,
+    current_user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Get user detail by ID (Admin only).
+    """
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail=f"User with ID {user_id} not found"
+        )
+    
+
+    role = db.query(Role).filter(Role.id == user.role_id).first()
+    
+
+    department = db.query(Department).filter(Department.id == user.department_id).first()
+    
+
+    documents = db.query(UserDocument).filter(UserDocument.user_id == user.id).all()
+    
+
+    total_reports = db.query(Report).filter(Report.user_id == user.id).count()
+    accepted_reports = db.query(Report).filter(
+        Report.user_id == user.id,
+        Report.status == "Accepted"
+    ).count()
+    rejected_reports = db.query(Report).filter(
+        Report.user_id == user.id,
+        Report.status == "Rejected"
+    ).count()
+    
+
+    doc_list = []
+    for doc in documents:
+        doc_type = db.query(DocumentType).filter(DocumentType.id == doc.document_type_id).first()
+        doc_list.append({
+            "id": doc.id,
+            "document_type": doc_type.name if doc_type else None,
+            "file_name": doc.file_name,
+            "object_name": doc.object_name,
+            "file_size": doc.file_size,
+            "content_type": doc.content_type,
+            "created_at": doc.created_at
+        })
+    
+    return {
+        "success": True,
+        "data": {
+            "id": user.id,
+            "full_name": user.full_name,
+            "email": user.email,
+            "phone_number": user.phone_number,
+            "researcher_type": user.researcher_type,
+            "employee_id": user.employee_id,
+            "company": user.company,
+            "position": user.position,
+            "office_location": user.office_location,
+            "role_id": user.role_id,
+            "role_name": role.name if role else None,
+            "department_id": user.department_id,
+            "department_name": department.name if department else None,
+            "total_point": user.total_point,
+            "status": user.status,
+            "created_at": user.created_at,
+            "updated_at": user.updated_at,
+            "documents": doc_list,
+            "statistics": {
+                "total_reports": total_reports,
+                "accepted_reports": accepted_reports,
+                "rejected_reports": rejected_reports
+            }
+        }
+    }
 # PUT /admin/users/{id}/approve
 @router.put("/users/{user_id}/approve", response_model=AdminActionResponse)
 async def approve_user(

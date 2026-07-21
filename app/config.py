@@ -23,5 +23,5 @@ class Config:
     
     # Upload
     UPLOAD_DIR = "uploads"
-    MAX_FILE_SIZE = 100 * 1024 * 1024  # 10MB
+    MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
     ALLOWED_DOCUMENT_TYPES = ["KTP", "NDA", "CV", "PORTFOLIO"]
