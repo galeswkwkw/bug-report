@@ -61,8 +61,10 @@ class LoginRequest(BaseModel):
 class LoginResponse(BaseModel):
     success: bool
     message: str
+    refresh_token: str
     access_token: str
     token_type: str = "bearer"
+    expires_in: int
     user: dict
 
 class RegisterResponse(BaseModel):
