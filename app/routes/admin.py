@@ -278,9 +278,7 @@ async def get_approved_users(
         "count": len(result),
         "data": result
     }
-
 # GET /admin/users - GET ALL USERS (ADMIN ONLY)
-
 @router.get("/users")
 async def get_all_users(
     current_user: User = Depends(get_current_admin),
@@ -301,9 +299,7 @@ async def get_all_users(
     - limit: number of results per page (default 50)
     - offset: number of results to skip (default 0)
     """
-    
     query = db.query(User)
-    
     
     if status:
         query = query.filter(User.status == status)
@@ -317,19 +313,30 @@ async def get_all_users(
             (User.email.ilike(f"%{search}%"))
         )
     
-    
     total_count = query.count()
-    
-    
     users = query.order_by(User.created_at.desc()).offset(offset).limit(limit).all()
-    
     
     result = []
     for user in users:
-        
         role = db.query(Role).filter(Role.id == user.role_id).first()
-        
         department = db.query(Department).filter(Department.id == user.department_id).first()
+        
+        # 🔥 AMBIL DOKUMEN USER
+        documents = db.query(UserDocument).filter(UserDocument.user_id == user.id).all()
+        doc_list = []
+        for doc in documents:
+            doc_type = db.query(DocumentType).filter(DocumentType.id == doc.document_type_id).first()
+            url = minio_client.get_presigned_url(object_name=doc.object_name, expiry=3600)
+            doc_list.append({
+                "id": doc.id,
+                "document_type": doc_type.name if doc_type else None,
+                "file_name": doc.file_name,
+                "object_name": doc.object_name,
+                "file_size": doc.file_size,
+                "content_type": doc.content_type,
+                "created_at": doc.created_at,
+                "url": url
+            })
         
         result.append({
             "id": user.id,
@@ -348,7 +355,8 @@ async def get_all_users(
             "total_point": user.total_point,
             "status": user.status,
             "created_at": user.created_at,
-            "updated_at": user.updated_at
+            "updated_at": user.updated_at,
+            "documents": doc_list  # 🔥 TAMBAHKAN!
         })
     
     return {
