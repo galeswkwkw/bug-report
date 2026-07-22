@@ -14,11 +14,11 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:5173",           # React/Vite
-        "http://localhost:3000",           # React
-        "http://localhost:8080",           # Vue
-        "https://bugbounty.sprintasia.net", # Production FE
-        "https://api-bugbounty.sprintasia.net", # API domain (opsional)
+        "http://localhost:5173",           
+        "http://localhost:3000",           
+        "http://localhost:8080",           
+        "https://bugbounty.sprintasia.net", 
+        "https://api-bugbounty.sprintasia.net", 
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
