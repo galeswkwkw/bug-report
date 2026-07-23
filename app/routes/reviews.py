@@ -226,7 +226,7 @@ async def review_report(
         report.review_comment = request.comment
         report.reviewer_id = current_user.id
         report.reviewed_at = datetime.now()
-        report.rejected_at = datetime.now()  # 🔥 TAMBAHKAN!
+        report.rejected_at = datetime.now()  
         report.point = 0
     
     report.updated_at = datetime.now()
@@ -264,6 +264,7 @@ async def review_report(
         description=report.description,
         steps_to_reproduce=report.steps_to_reproduce,
         steps_to_resolve=report.steps_to_resolve,
+        affected_endpoint=report.affected_endpoint,
         impact=report.impact,
         severity=report.severity,
         point=report.point,
@@ -360,6 +361,7 @@ async def get_assigned_report_detail(
         "description": report.description,
         "steps_to_reproduce": report.steps_to_reproduce,
         "steps_to_resolve": report.steps_to_resolve,
+        "affected_endpoint": report.affected_endpoint,
         "impact": report.impact,
         "severity": report.severity,
         "point": report.point,

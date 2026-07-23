@@ -114,7 +114,7 @@ async def get_all_users(
             "status": user.status,
             "created_at": user.created_at,
             "updated_at": user.updated_at,
-            "documents": doc_list  # 🔥 TAMBAHKAN!
+            "documents": doc_list  
         })
     
     return {

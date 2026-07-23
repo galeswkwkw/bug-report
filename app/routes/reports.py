@@ -84,6 +84,7 @@ async def get_reports(
             description=report.description,
             steps_to_reproduce=report.steps_to_reproduce,
             steps_to_resolve=report.steps_to_resolve,
+            affected_endpoint=report.affected_endpoint,
             impact=report.impact,
             severity=report.severity,
             point=report.point,
@@ -591,6 +592,7 @@ async def get_report_by_id(
         description=report.description,
         steps_to_reproduce=report.steps_to_reproduce,
         steps_to_resolve=report.steps_to_resolve,
+        affected_endpoint=report.affected_endpoint,
         impact=report.impact,
         severity=report.severity,
         point=report.point,
@@ -669,9 +671,9 @@ async def update_evidence(
             evidence.bucket_name,
             evidence.object_name
         )
-        print(f"✅ Deleted old file from MinIO: {evidence.object_name}")
+        print(f" Deleted old file from MinIO: {evidence.object_name}")
     except Exception as e:
-        print(f"⚠️ Failed to delete old file: {str(e)}")
+        print(f" Failed to delete old file: {str(e)}")
     
     file_extension = os.path.splitext(file.filename)[1]
     object_name = f"report_evidences/{evidence.report_id}/{uuid.uuid4().hex[:8]}{file_extension}"
@@ -856,6 +858,7 @@ async def update_report(
         steps_to_reproduce=report.steps_to_reproduce,
         steps_to_resolve=report.steps_to_resolve,
         impact=report.impact,
+        affected_endpoint=report.affected_endpoint,
         severity=report.severity,
         point=report.point,
         status=report.status,
