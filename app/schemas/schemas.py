@@ -258,4 +258,5 @@ class ReportUpdateByResearcherRequest(BaseModel):
     steps_to_reproduce: Optional[str] = None
     steps_to_resolve: Optional[str] = None
     impact: Optional[str] = None
+    affected_endpoint: Optional[str] = None 
     severity: Optional[str] = Field(None, pattern="^(Critical|High|Medium|Low|Informational)$")
