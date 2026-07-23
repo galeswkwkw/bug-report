@@ -43,7 +43,6 @@ def get_current_admin_or_security(current_user: User = Depends(get_current_activ
             detail="Admin or Security Team access required"
         )
     return current_user
-
 # GET /reports - GET ALL REPORTS
 @router.get("", response_model=list[ReportResponse])
 async def get_reports(
@@ -63,7 +62,6 @@ async def get_reports(
         asset = db.query(Asset).filter(Asset.id == report.asset_id).first()
         user = db.query(User).filter(User.id == report.user_id).first()
         
-      
         reviewer_data = None
         if report.reviewer_id:
             reviewer = db.query(User).filter(User.id == report.reviewer_id).first()
@@ -73,32 +71,35 @@ async def get_reports(
                     "name": reviewer.full_name
                 }
         
+        can_edit = (report.status == "Submitted" and report.user_id == current_user.id)
+        
         result.append(ReportResponse(
             id=report.id,
             user_id=report.user_id,
             asset_id=report.asset_id,
             reviewer_id=report.reviewer_id,
-            reviewer=reviewer_data, 
+            reviewer=reviewer_data,
             title=report.title,
             category=report.category,
             description=report.description,
             steps_to_reproduce=report.steps_to_reproduce,
             steps_to_resolve=report.steps_to_resolve,
-            affected_endpoint=report.affected_endpoint,
             impact=report.impact,
+            affected_endpoint=report.affected_endpoint,
             severity=report.severity,
             point=report.point,
             status=report.status,
             review_comment=report.review_comment,
             reject_reason=report.reject_reason,
             assignment_comment=report.assignment_comment,
+            reviewed_at=report.reviewed_at,
             accepted_at=report.accepted_at,
             rejected_at=report.rejected_at,
-            reviewed_at=report.reviewed_at,
             created_at=report.created_at,
             updated_at=report.updated_at,
             asset_name=asset.name if asset else None,
-            user_name=user.full_name if user else None
+            user_name=user.full_name if user else None,
+            can_edit=can_edit  # 
         ))
     
     return result
