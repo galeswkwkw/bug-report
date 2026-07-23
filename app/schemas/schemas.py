@@ -177,10 +177,7 @@ class ReportCreateRequest(BaseModel):
     steps_to_reproduce: str = Field(..., min_length=1)
     steps_to_resolve: Optional[str] = None
     impact: Optional[str] = None
-    severity: Optional[str] = Field(
-        None, 
-        pattern="^(Critical|High|Medium|Low|Informational)$"
-    )
+    affected_endpoint: Optional[str] = Field(None, max_length=500) 
 
 class ReportResponse(BaseModel):
     id: int
@@ -194,7 +191,8 @@ class ReportResponse(BaseModel):
     steps_to_reproduce: str
     steps_to_resolve: Optional[str]
     impact: Optional[str]
-    severity: str
+    affected_endpoint: Optional[str] = None 
+    severity: Optional[str] = None
     point: int
     status: str
     review_comment: Optional[str]

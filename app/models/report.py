@@ -19,7 +19,8 @@ class Report(Base):
     steps_to_resolve = Column(Text, nullable=True)
     impact = Column(Text, nullable=True)
     
-    severity = Column(String(20), nullable=False)
+    affected_endpoint = Column(String(500), nullable=True)
+    severity = Column(String(20), nullable=True) 
     point = Column(Integer, default=0)
     
     status = Column(String(20), default="Submitted")

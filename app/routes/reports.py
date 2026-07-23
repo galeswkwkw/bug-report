@@ -1032,6 +1032,8 @@ async def get_report_evidences(
         )
     
     return result
+
+
 # POST /reports - CREATE REPORT
 @router.post("", response_model=ReportResponse, status_code=status.HTTP_201_CREATED)
 async def create_report(
@@ -1042,7 +1044,7 @@ async def create_report(
     """
     Create a new vulnerability report (User must be authenticated)
     """
-    # 1. Cek asset exists
+    
     asset = db.query(Asset).filter(Asset.id == request.asset_id).first()
     if not asset:
         raise HTTPException(
@@ -1050,24 +1052,12 @@ async def create_report(
             detail=f"Asset with ID {request.asset_id} not found"
         )
     
-    # 2. HANDLE SEVERITY OPSIONAL
-    if request.severity is None or request.severity == "":
-        severity = "Low"
-    else:
-        severity = request.severity
+    severity = None  
     
-    # 3. Validasi severity
-    valid_severities = ["Critical", "High", "Medium", "Low", "Informational"]
-    if severity not in valid_severities:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid severity. Must be one of: {', '.join(valid_severities)}"
-        )
     
-    # 4. POINT = 0 (nanti dikasih IT Security)
     point = 0
     
-    # 5. Buat report
+    
     new_report = Report(
         user_id=current_user.id,
         asset_id=request.asset_id,
@@ -1077,7 +1067,8 @@ async def create_report(
         steps_to_reproduce=request.steps_to_reproduce,
         steps_to_resolve=request.steps_to_resolve,
         impact=request.impact,
-        severity=severity,
+        affected_endpoint=request.affected_endpoint,
+        severity=severity,  
         point=point,
         status="Submitted"
     )
@@ -1094,6 +1085,7 @@ async def create_report(
             detail=f"Failed to create report: {str(e)}"
         )
     
+    
     admin = db.query(User).filter(User.role_id == 1).first()
     if admin:
         NotificationService.create_report_notification(
@@ -1103,7 +1095,7 @@ async def create_report(
             report_title=new_report.title
         )
     
-    # 6. Response (HANYA 1 RETURN!)
+    
     return ReportResponse(
         id=new_report.id,
         user_id=new_report.user_id,
@@ -1115,7 +1107,8 @@ async def create_report(
         steps_to_reproduce=new_report.steps_to_reproduce,
         steps_to_resolve=new_report.steps_to_resolve,
         impact=new_report.impact,
-        severity=new_report.severity,
+        affected_endpoint=new_report.affected_endpoint,
+        severity=new_report.severity,  
         point=new_report.point,
         status=new_report.status,
         review_comment=new_report.review_comment,

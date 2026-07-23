@@ -157,14 +157,12 @@ async def login(
             detail=f"Account is {user.status}. Please wait for admin approval."
         )
     
-    # ✅ ACCESS_TOKEN_EXPIRE_MINUTES: 20 menit
     access_token_expires = timedelta(minutes=Config.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         data={"sub": str(user.id), "email": user.email, "role": user.role_id},
         expires_delta=access_token_expires
     )
     
-    # ✅ Tambahkan Refresh Token (7 hari)
     refresh_token = create_refresh_token(
         data={"sub": str(user.id), "email": user.email, "role": user.role_id}
     )
@@ -176,9 +174,9 @@ async def login(
         success=True,
         message="Login successful",
         access_token=access_token,
-        refresh_token=refresh_token,  # ✅ Tambahkan ini
+        refresh_token=refresh_token,  
         token_type="bearer",
-        expires_in=Config.ACCESS_TOKEN_EXPIRE_MINUTES * 60,  # ✅ Tambahkan ini (dalam detik)
+        expires_in=Config.ACCESS_TOKEN_EXPIRE_MINUTES * 60, 
         user={
             "id": user.id,
             "full_name": user.full_name,
@@ -192,9 +190,7 @@ async def login(
     )
 
 
-# ============================================================
 # GET /roles
-# ============================================================
 @router.get("/roles")
 async def get_roles(db: Session = Depends(get_db)):
     """
@@ -204,9 +200,7 @@ async def get_roles(db: Session = Depends(get_db)):
     return {"success": True, "data": [{"id": r.id, "name": r.name} for r in roles]}
 
 
-# ============================================================
 # GET /departments
-# ============================================================
 @router.get("/departments")
 async def get_departments(db: Session = Depends(get_db)):
     """
@@ -216,20 +210,23 @@ async def get_departments(db: Session = Depends(get_db)):
     return {"success": True, "data": [{"id": d.id, "name": d.name} for d in departments]}
 
 
-# ============================================================
 # POST /auth/upload-documents - UPLOAD TANPA TOKEN
-# ============================================================
+
 @router.post("/upload-documents")
 async def upload_documents(
     user_id: int = Form(...),
-    ktp_file: UploadFile = File(...),
-    nda_file: UploadFile = File(...),
+    nda_file: UploadFile = File(...),  
+    ktp_file: UploadFile = File(None),  
     cv_file: UploadFile = File(None),
     db: Session = Depends(get_db)
 ):
     """
     Upload documents for registration (NO AUTH REQUIRED).
     User must register first to get user_id.
+    - NDA: Wajib
+    - KTP: Opsional
+    - CV: Opsional
+    - Allowed formats: pdf, png, jpg
     """
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
@@ -243,62 +240,83 @@ async def upload_documents(
     
     uploaded_files = []
     
-    # ============================================================
-    # UPLOAD KTP (WAJIB)
-    # ============================================================
-    try:
-        ktp_content = await ktp_file.read()
-        ktp_size = len(ktp_content)
-        
-        if ktp_size > Config.MAX_FILE_SIZE:
-            raise HTTPException(status_code=400, detail="KTP file too large. Max size: 10MB")
-        
-        ktp_extension = os.path.splitext(ktp_file.filename)[1]
-        ktp_object_name = f"user_documents/{user_id}/ktp_{uuid.uuid4().hex[:8]}{ktp_extension}"
-        
-        # Upload ke MinIO (tanpa bucket_name)
-        minio_client.upload_file(
-            object_name=ktp_object_name,
-            file_content=ktp_content,
-            content_type=ktp_file.content_type
-        )
-        
-        ktp_doc_type = db.query(DocumentType).filter(DocumentType.name == "KTP").first()
-        if not ktp_doc_type:
-            ktp_doc_type = DocumentType(name="KTP", required=True)
-            db.add(ktp_doc_type)
-            db.flush()
-        
-        ktp_doc = UserDocument(
-            user_id=user_id,
-            document_type_id=ktp_doc_type.id,
-            file_name=ktp_file.filename,
-            object_name=ktp_object_name,
-            bucket_name="uploads",
-            file_size=ktp_size,
-            content_type=ktp_file.content_type or "image/jpeg"
-        )
-        db.add(ktp_doc)
-        uploaded_files.append({"type": "KTP", "status": "uploaded"})
-        
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"KTP upload failed: {str(e)}")
     
-    # ============================================================
+    def validate_file_extension(filename: str):
+        allowed_extensions = [".pdf", ".png", ".jpg", ".jpeg"]
+        ext = os.path.splitext(filename)[1].lower()
+        if ext not in allowed_extensions:
+            raise HTTPException(
+                status_code=400,
+                detail=f"File format not allowed. Allowed formats: pdf, png, jpg. Your file: {filename}"
+            )
+    
+    
+    # UPLOAD KTP (OPSIONAL)
+    
+    if ktp_file and ktp_file.filename:
+        try:
+            
+            validate_file_extension(ktp_file.filename)
+            
+            ktp_content = await ktp_file.read()
+            ktp_size = len(ktp_content)
+            
+            if ktp_size == 0:
+                raise HTTPException(status_code=400, detail="KTP file is empty!")
+            
+            if ktp_size > Config.MAX_FILE_SIZE:
+                raise HTTPException(status_code=400, detail=f"KTP file too large. Max size: 10MB")
+            
+            ktp_extension = os.path.splitext(ktp_file.filename)[1]
+            ktp_object_name = f"user_documents/{user_id}/ktp_{uuid.uuid4().hex[:8]}{ktp_extension}"
+            
+            minio_client.upload_file(
+                object_name=ktp_object_name,
+                file_content=ktp_content,
+                content_type=ktp_file.content_type
+            )
+            
+            ktp_doc_type = db.query(DocumentType).filter(DocumentType.name == "KTP").first()
+            if not ktp_doc_type:
+                ktp_doc_type = DocumentType(name="KTP", required=False)
+                db.add(ktp_doc_type)
+                db.flush()
+            
+            ktp_doc = UserDocument(
+                user_id=user_id,
+                document_type_id=ktp_doc_type.id,
+                file_name=ktp_file.filename,
+                object_name=ktp_object_name,
+                bucket_name="uploads",
+                file_size=ktp_size,
+                content_type=ktp_file.content_type or "image/jpeg"
+            )
+            db.add(ktp_doc)
+            uploaded_files.append({"type": "KTP", "status": "uploaded"})
+            
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(status_code=500, detail=f"KTP upload failed: {str(e)}")
+    
+    
     # UPLOAD NDA (WAJIB)
-    # ============================================================
+    
     try:
+       
+        validate_file_extension(nda_file.filename)
+        
         nda_content = await nda_file.read()
         nda_size = len(nda_content)
         
+        if nda_size == 0:
+            raise HTTPException(status_code=400, detail="NDA file is empty!")
+        
         if nda_size > Config.MAX_FILE_SIZE:
-            raise HTTPException(status_code=400, detail="NDA file too large. Max size: 10MB")
+            raise HTTPException(status_code=400, detail=f"NDA file too large. Max size: 10MB")
         
         nda_extension = os.path.splitext(nda_file.filename)[1]
         nda_object_name = f"user_documents/{user_id}/nda_{uuid.uuid4().hex[:8]}{nda_extension}"
         
-        # Upload ke MinIO (tanpa bucket_name)
         minio_client.upload_file(
             object_name=nda_object_name,
             file_content=nda_content,
@@ -327,21 +345,26 @@ async def upload_documents(
         db.rollback()
         raise HTTPException(status_code=500, detail=f"NDA upload failed: {str(e)}")
     
-    # ============================================================
+    
     # UPLOAD CV (OPSIONAL)
-    # ============================================================
+    
     if cv_file and cv_file.filename:
         try:
+            
+            validate_file_extension(cv_file.filename)
+            
             cv_content = await cv_file.read()
             cv_size = len(cv_content)
             
+            if cv_size == 0:
+                raise HTTPException(status_code=400, detail="CV file is empty!")
+            
             if cv_size > Config.MAX_FILE_SIZE:
-                raise HTTPException(status_code=400, detail="CV file too large. Max size: 10MB")
+                raise HTTPException(status_code=400, detail=f"CV file too large. Max size: 10MB")
             
             cv_extension = os.path.splitext(cv_file.filename)[1]
             cv_object_name = f"user_documents/{user_id}/cv_{uuid.uuid4().hex[:8]}{cv_extension}"
             
-            # Upload ke MinIO (tanpa bucket_name)
             minio_client.upload_file(
                 object_name=cv_object_name,
                 file_content=cv_content,
@@ -370,9 +393,9 @@ async def upload_documents(
             db.rollback()
             raise HTTPException(status_code=500, detail=f"CV upload failed: {str(e)}")
     
-    # ============================================================
+    
     # COMMIT ALL
-    # ============================================================
+    
     try:
         db.commit()
     except Exception as e:
