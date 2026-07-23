@@ -739,13 +739,11 @@ async def update_report_by_researcher(
             detail=f"Report with ID {report_id} not found"
         )
     
-    
     if report.user_id != current_user.id:
         raise HTTPException(
             status_code=403,
             detail="You are not authorized to edit this report"
         )
-    
     
     if report.status != "Submitted":
         raise HTTPException(
@@ -753,7 +751,7 @@ async def update_report_by_researcher(
             detail="This report can no longer be edited because it is already under review."
         )
     
-    
+    # 🔥 UPDATE FIELDS
     if request.title is not None:
         report.title = request.title
     if request.category is not None:
@@ -766,15 +764,8 @@ async def update_report_by_researcher(
         report.steps_to_resolve = request.steps_to_resolve
     if request.impact is not None:
         report.impact = request.impact
-    if request.severity is not None:
-        valid_severities = ["Critical", "High", "Medium", "Low", "Informational"]
-        if request.severity not in valid_severities:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid severity. Must be one of: {', '.join(valid_severities)}"
-            )
-        report.severity = request.severity
-    
+    if request.affected_endpoint is not None:  
+        report.affected_endpoint = request.affected_endpoint    
     report.updated_at = datetime.now()
     
     try:
@@ -787,11 +778,13 @@ async def update_report_by_researcher(
             detail=f"Failed to update report: {str(e)}"
         )
     
+    # 🔥 RESPONSE DENGAN affected_endpoint
     return {
         "success": True,
         "message": "Report updated successfully.",
         "report_id": report.id,
-        "updated_at": report.updated_at
+        "updated_at": report.updated_at,
+        "affected_endpoint": report.affected_endpoint  
     }
 
 # PUT /reports/{id} - UPDATE REPORT STATUS (ADMIN ONLY)
