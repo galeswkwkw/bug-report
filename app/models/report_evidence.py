@@ -14,6 +14,7 @@ class ReportEvidence(Base):
     bucket_name = Column(String(100), default="uploads")
     file_size = Column(BigInteger, nullable=False)
     content_type = Column(String(100), nullable=False)
+    type = Column(String(50), default="evidence") 
     
     created_at = Column(TIMESTAMP, default=func.now())
     

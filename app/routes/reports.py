@@ -1,15 +1,18 @@
-from typing import Optional 
-from fastapi import APIRouter, HTTPException, Depends, status, UploadFile, File
+from typing import Optional, List
+from fastapi import APIRouter, HTTPException, Depends, status, UploadFile, File, Form  
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime
 import uuid
 import os
-
+from typing import List
 
 from app.database import SessionLocal
 from app.models import Report, Asset, User, PointRule, ReportEvidence
-from app.schemas import ReportCreateRequest, ReportResponse, ReportEvidenceResponse, ReportUpdateRequest, ReviewRequest
+from app.schemas import (
+    ReportCreateRequest, ReportResponse, ReportEvidenceResponse, 
+    ReportUpdateRequest, ReviewRequest, MultipleUploadResponse
+)
 from app.auth import get_current_active_user, get_current_admin
 from app.auth import get_current_active_user
 from app.minio_client import minio_client
@@ -43,6 +46,7 @@ def get_current_admin_or_security(current_user: User = Depends(get_current_activ
             detail="Admin or Security Team access required"
         )
     return current_user
+
 # GET /reports - GET ALL REPORTS
 @router.get("", response_model=list[ReportResponse])
 async def get_reports(
@@ -485,6 +489,7 @@ async def export_reports(
 #         "updated_at": report.updated_at,
 #         "evidences": evidence_list
 #     }
+
 # PUT /reports/{id}/assign - ASSIGN REPORT TO SECURITY TEAM (ADMIN ONLY)
 @router.put("/{report_id}/assign")
 async def assign_report(
@@ -616,15 +621,26 @@ async def get_report_by_id(
 async def update_evidence(
     evidence_id: int,
     file: UploadFile = File(...),
+    type: str = Form(...),  
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """
-    Update evidence file by ID.
+    Update evidence/result file by ID.
     - Admin: can update any evidence
     - Researcher: only their own evidence (report owner)
     - ONLY allowed if report status is 'Submitted'
+    
+    **type:** 'evidence' atau 'result' (wajib)
     """
+    
+    
+    if type not in ["evidence", "result"]:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid type. Must be 'evidence' or 'result'"
+        )
+    
     
     evidence = db.query(ReportEvidence).filter(ReportEvidence.id == evidence_id).first()
     if not evidence:
@@ -633,12 +649,14 @@ async def update_evidence(
             detail=f"Evidence with ID {evidence_id} not found"
         )
     
+    
     report = db.query(Report).filter(Report.id == evidence.report_id).first()
     if not report:
         raise HTTPException(
             status_code=404,
             detail=f"Report with ID {evidence.report_id} not found"
         )
+    
     
     is_admin = current_user.role_id == 1
     is_owner = report.user_id == current_user.id
@@ -649,11 +667,13 @@ async def update_evidence(
             detail="You are not authorized to update this evidence"
         )
     
+    
     if report.status != "Submitted":
         raise HTTPException(
             status_code=400,
             detail=f"Cannot update evidence for report with status: {report.status}. Only Submitted reports can update evidence."
         )
+    
     
     file_content = await file.read()
     file_size = len(file_content)
@@ -661,23 +681,43 @@ async def update_evidence(
     if file_size == 0:
         raise HTTPException(status_code=400, detail="File is empty!")
     
-    if file_size > Config.MAX_FILE_SIZE:
+    max_file_size = getattr(Config, 'MAX_FILE_SIZE', 250 * 1024 * 1024)
+    if file_size > max_file_size:
         raise HTTPException(
             status_code=400,
-            detail=f"File too large. Max size: 100MB. Your file: {file_size} bytes"
+            detail=f"File too large. Max size: {max_file_size / (1024*1024):.0f}MB. Your file: {file_size / (1024*1024):.2f}MB"
         )
+    
+    
+    if type == "evidence":
+        allowed_extensions = getattr(Config, 'ALLOWED_EVIDENCE_EXTENSIONS', [".pdf", ".csv", ".jpg", ".png", ".mp4", ".tar.gz"])
+    else:
+        allowed_extensions = getattr(Config, 'ALLOWED_RESULT_EXTENSIONS', [".pdf", ".csv", ".jpg", ".png", ".mp4", ".tar.gz"])
+    
+    ext = os.path.splitext(file.filename)[1].lower()
+    if ext not in allowed_extensions:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File format not allowed. Allowed: {', '.join(allowed_extensions)}"
+        )
+    
     
     try:
         minio_client.client.remove_object(
             evidence.bucket_name,
             evidence.object_name
         )
-        print(f" Deleted old file from MinIO: {evidence.object_name}")
+        print(f"✅ Deleted old file from MinIO: {evidence.object_name}")
     except Exception as e:
-        print(f" Failed to delete old file: {str(e)}")
+        print(f"⚠️ Failed to delete old file: {str(e)}")
+    
     
     file_extension = os.path.splitext(file.filename)[1]
-    object_name = f"report_evidences/{evidence.report_id}/{uuid.uuid4().hex[:8]}{file_extension}"
+    if type == "result":
+        object_name = f"report_results/{evidence.report_id}/{uuid.uuid4().hex[:8]}{file_extension}"
+    else:
+        object_name = f"report_evidences/{evidence.report_id}/{uuid.uuid4().hex[:8]}{file_extension}"
+    
     
     try:
         minio_client.upload_file(
@@ -686,11 +726,13 @@ async def update_evidence(
             content_type=file.content_type
         )
         
+        
         evidence.file_name = file.filename
         evidence.object_name = object_name
         evidence.bucket_name = "uploads"
         evidence.file_size = file_size
         evidence.content_type = file.content_type or "application/octet-stream"
+        evidence.type = type  # 
         
         db.commit()
         db.refresh(evidence)
@@ -701,6 +743,7 @@ async def update_evidence(
             status_code=500,
             detail=f"Failed to update evidence: {str(e)}"
         )
+    
     
     presigned_url = minio_client.get_presigned_url(
         object_name=object_name,
@@ -715,6 +758,7 @@ async def update_evidence(
         bucket_name=evidence.bucket_name,
         file_size=evidence.file_size,
         content_type=evidence.content_type,
+        type=evidence.type,  
         created_at=evidence.created_at,
         url=presigned_url
     )
@@ -976,10 +1020,11 @@ async def delete_evidence(
     
     return None  # 204 No Content
 
-# GET /reports/{id}/evidences - GET ALL EVIDENCES
-@router.get("/{report_id}/evidences", response_model=list[ReportEvidenceResponse])
+# GET /reports/{id}/evidences - GET ALL EVIDENCES (WITH FILTER TYPE)
+@router.get("/{report_id}/evidences", response_model=dict)
 async def get_report_evidences(
     report_id: int,
+    type: Optional[str] = None,  
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
@@ -987,6 +1032,11 @@ async def get_report_evidences(
     Get all evidences for a report.
     - Researcher: only their own reports
     - Admin/Security: all reports
+    
+    **Filter by type:**
+    - type=evidence → hanya evidence
+    - type=result → hanya result
+    - type=None → semua (default)
     """
     report = db.query(Report).filter(Report.id == report_id).first()
     if not report:
@@ -1002,9 +1052,17 @@ async def get_report_evidences(
             detail="You are not authorized to view evidences for this report"
         )
     
-    evidences = db.query(ReportEvidence).filter(
-        ReportEvidence.report_id == report_id
-    ).order_by(ReportEvidence.created_at.desc()).all()
+    query = db.query(ReportEvidence).filter(ReportEvidence.report_id == report_id)
+    
+    if type:
+        if type not in ["evidence", "result"]:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid type. Must be 'evidence' or 'result'"
+            )
+        query = query.filter(ReportEvidence.type == type)
+    
+    evidences = query.order_by(ReportEvidence.created_at.desc()).all()
     
     result = []
     for evidence in evidences:
@@ -1021,12 +1079,17 @@ async def get_report_evidences(
                 bucket_name=evidence.bucket_name,
                 file_size=evidence.file_size,
                 content_type=evidence.content_type,
+                type=evidence.type,  # 
                 created_at=evidence.created_at,
                 url=presigned_url
             )
         )
     
-    return result
+    return {
+        "success": True,
+        "total": len(result),
+        "data": result
+    }
 
 
 # POST /reports - CREATE REPORT
@@ -1115,19 +1178,45 @@ async def create_report(
         user_name=current_user.full_name
     )
 
-
-# POST /reports/{id}/evidence - UPLOAD EVIDENCE
-@router.post("/{report_id}/evidence", response_model=ReportEvidenceResponse, status_code=status.HTTP_201_CREATED)
+# POST /reports/{id}/evidence - UPLOAD MULTIPLE EVIDENCE/RESULT
+@router.post("/{report_id}/evidence", response_model=MultipleUploadResponse, status_code=status.HTTP_201_CREATED)
 async def upload_evidence(
     report_id: int,
-    file: UploadFile = File(...),
+    files: List[UploadFile] = File(..., description="Upload up to 4 files (max 250MB total)"),
+    type: str = Form("evidence"),
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """
-    Upload evidence file for a report (User must be authenticated)
+    Upload multiple evidence/result files for a report (User must be authenticated)
+    
+    - type: 'evidence' (default) atau 'result'
+    - Max 4 files per upload
+    - Allowed formats: PDF, CSV, JPG, PNG, MP4, TAR.GZ
+    - Max per file: 250MB
+    - Total max: 250MB
+    
+    **KEY UNTUK FILE: 'file' (bukan 'files')**
     """
-    # 1. Cek report exists
+    
+    if type not in ["evidence", "result"]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid type. Must be 'evidence' or 'result'"
+        )
+    
+    
+    if len(files) == 0:
+        raise HTTPException(status_code=400, detail="No files uploaded")
+    
+    max_files = getattr(Config, 'MAX_FILES_PER_UPLOAD', 4)
+    if len(files) > max_files:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Maximum {max_files} files allowed. You uploaded {len(files)} files"
+        )
+    
+    
     report = db.query(Report).filter(Report.id == report_id).first()
     if not report:
         raise HTTPException(
@@ -1135,11 +1224,13 @@ async def upload_evidence(
             detail=f"Report with ID {report_id} not found"
         )
     
-    if report.user_id != current_user.id:
+    
+    if report.user_id != current_user.id and current_user.role_id != 1:
         raise HTTPException(
             status_code=403,
             detail="You are not authorized to upload evidence for this report"
         )
+    
     
     if report.status != "Submitted":
         raise HTTPException(
@@ -1147,66 +1238,166 @@ async def upload_evidence(
             detail=f"Cannot upload evidence for report with status: {report.status}"
         )
     
-    file_content = await file.read()
-    file_size = len(file_content)
     
-    if file_size == 0:
-        raise HTTPException(status_code=400, detail="File is empty!")
+    if type == "evidence":
+        allowed_extensions = getattr(Config, 'ALLOWED_EVIDENCE_EXTENSIONS', [".pdf", ".csv", ".jpg", ".png", ".mp4", ".tar.gz"])
+    else:  # result
+        allowed_extensions = getattr(Config, 'ALLOWED_RESULT_EXTENSIONS', [".pdf", ".csv", ".jpg", ".png", ".mp4", ".tar.gz"])
     
-    if file_size > Config.MAX_FILE_SIZE:
+    max_file_size = getattr(Config, 'MAX_FILE_SIZE', 250 * 1024 * 1024)
+    
+    
+    total_size = 0
+    validated_files = []
+    errors = []
+    
+    for idx, file in enumerate(files):
+        
+        if not file.filename:
+            errors.append({
+                "index": idx,
+                "error": "File has no filename"
+            })
+            continue
+        
+        
+        ext = os.path.splitext(file.filename)[1].lower()
+        if ext not in allowed_extensions:
+            errors.append({
+                "index": idx,
+                "filename": file.filename,
+                "error": f"File format not allowed. Allowed: {', '.join(allowed_extensions)}"
+            })
+            continue
+        
+        
+        try:
+            file_content = await file.read()
+        except Exception as e:
+            errors.append({
+                "index": idx,
+                "filename": file.filename,
+                "error": f"Failed to read file: {str(e)}"
+            })
+            continue
+        
+        file_size = len(file_content)
+        
+        if file_size == 0:
+            errors.append({
+                "index": idx,
+                "filename": file.filename,
+                "error": "File is empty!"
+            })
+            continue
+        
+        
+        if file_size > max_file_size:
+            errors.append({
+                "index": idx,
+                "filename": file.filename,
+                "error": f"File too large. Max {max_file_size / (1024*1024):.0f}MB per file. Your file: {file_size / (1024*1024):.2f}MB"
+            })
+            continue
+        
+        total_size += file_size
+        validated_files.append({
+            "index": idx,
+            "file": file,
+            "filename": file.filename,
+            "content": file_content,
+            "size": file_size,
+            "extension": ext,
+            "content_type": file.content_type or "application/octet-stream"
+        })
+    
+    
+    if total_size > max_file_size:
         raise HTTPException(
             status_code=400,
-            detail=f"File too large. Max size: 100MB. Your file: {file_size} bytes"
+            detail=f"Total files size exceeds {max_file_size / (1024*1024):.0f}MB. Current total: {total_size / (1024*1024):.2f}MB"
         )
     
-    # 5. Generate object name
-    file_extension = os.path.splitext(file.filename)[1]
-    object_name = f"report_evidences/{report_id}/{uuid.uuid4().hex[:8]}{file_extension}"
     
-    try:
-        minio_client.upload_file(
-            object_name=object_name,
-            file_content=file_content,
-            content_type=file.content_type
-        )
-        
-        evidence = ReportEvidence(
-            report_id=report_id,
-            file_name=file.filename,
-            object_name=object_name,
-            bucket_name="uploads",
-            file_size=file_size,
-            content_type=file.content_type or "application/octet-stream"
-        )
-        
-        db.add(evidence)
-        db.commit()
-        db.refresh(evidence)
-        
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to upload evidence: {str(e)}"
+    if errors:
+        return MultipleUploadResponse(
+            success=False,
+            message=f"{len(errors)} file(s) failed validation",
+            total_uploaded=0,
+            files=[],
+            errors=errors
         )
     
-    presigned_url = minio_client.get_presigned_url(
-        object_name=object_name,
-        expiry=3600
+    
+    uploaded_files = []
+    upload_errors = []
+    
+    for file_data in validated_files:
+        try:
+            
+            file_extension = file_data["extension"]
+            if type == "result":
+                object_name = f"report_results/{report_id}/{uuid.uuid4().hex[:8]}{file_extension}"
+            else:
+                object_name = f"report_evidences/{report_id}/{uuid.uuid4().hex[:8]}{file_extension}"
+            
+            
+            minio_client.upload_file(
+                object_name=object_name,
+                file_content=file_data["content"],
+                content_type=file_data["content_type"]
+            )
+            
+            
+            evidence = ReportEvidence(
+                report_id=report_id,
+                file_name=file_data["filename"],
+                object_name=object_name,
+                bucket_name="uploads",
+                file_size=file_data["size"],
+                content_type=file_data["content_type"],
+                type=type
+            )
+            
+            db.add(evidence)
+            db.commit()
+            db.refresh(evidence)
+            
+            
+            presigned_url = minio_client.get_presigned_url(
+                object_name=object_name,
+                expiry=3600
+            )
+            
+            # Prepare response
+            uploaded_files.append(ReportEvidenceResponse(
+                id=evidence.id,
+                report_id=evidence.report_id,
+                file_name=evidence.file_name,
+                object_name=evidence.object_name,
+                bucket_name=evidence.bucket_name,
+                file_size=evidence.file_size,
+                content_type=evidence.content_type,
+                type=evidence.type,
+                created_at=evidence.created_at,
+                url=presigned_url
+            ))
+            
+        except Exception as e:
+            db.rollback()
+            upload_errors.append({
+                "filename": file_data["filename"],
+                "error": str(e)
+            })
+    
+    
+    return MultipleUploadResponse(
+        success=len(upload_errors) == 0,
+        message=f"Successfully uploaded {len(uploaded_files)} {type} file(s)" if len(upload_errors) == 0 else f"Uploaded {len(uploaded_files)} file(s), {len(upload_errors)} failed",
+        total_uploaded=len(uploaded_files),
+        files=uploaded_files,
+        errors=upload_errors if upload_errors else None
     )
-    
-    return ReportEvidenceResponse(
-        id=evidence.id,
-        report_id=evidence.report_id,
-        file_name=evidence.file_name,
-        object_name=evidence.object_name,
-        bucket_name=evidence.bucket_name,
-        file_size=evidence.file_size,
-        content_type=evidence.content_type,
-        created_at=evidence.created_at,
-        url=presigned_url
-    )
-
 
 
 

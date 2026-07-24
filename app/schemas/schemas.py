@@ -215,8 +215,16 @@ class ReportEvidenceResponse(BaseModel):
     bucket_name: str
     file_size: int
     content_type: str
+    type: str
     created_at: datetime
     url: Optional[str] = None
+
+class MultipleUploadResponse(BaseModel):
+    success: bool
+    message: str
+    total_uploaded: int
+    files: List[ReportEvidenceResponse]
+    errors: Optional[List[dict]] = None
 
 class ReportEvidenceUpdateRequest(BaseModel):
     file: UploadFile = File(...)

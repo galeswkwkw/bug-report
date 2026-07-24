@@ -82,6 +82,7 @@ async def get_my_assigned_reviews(
         result.append({
             "id": report.id,
             "title": report.title,
+            "assignment_comment": report.assignment_comment,
             "asset": asset.domain if asset else None,
             "asset_name": asset.name if asset else None,
             "reporter": user.full_name if user else None,
@@ -150,6 +151,7 @@ async def start_review(
         "status": report.status,
         "started_at": report.reviewed_at
     }
+
 # PUT /reviews/{id} - REVIEW REPORT (ACCEPT/REJECT)
 @router.put("/{report_id}", response_model=ReportResponse)
 async def review_report(
@@ -204,7 +206,7 @@ async def review_report(
         report.review_comment = request.comment
         report.reviewer_id = current_user.id
         report.reviewed_at = datetime.now()
-        report.accepted_at = datetime.now()  # 🔥 TAMBAHKAN!
+        report.accepted_at = datetime.now()  
         
         point_rule = db.query(PointRule).filter(PointRule.severity == request.severity).first()
         report.point = point_rule.point if point_rule else 0
@@ -280,7 +282,7 @@ async def review_report(
         user_name=user.full_name if user else None
     )
 
-# GET /reviews/{id} - GET ASSIGNED REPORT DETAIL (ADMIN & SECURITY)
+# GET /reports/{id} - GET ASSIGNED REPORT DETAIL (ADMIN & SECURITY)
 @router.get("/{report_id}")
 async def get_assigned_report_detail(
     report_id: int,
@@ -293,7 +295,6 @@ async def get_assigned_report_detail(
     - Security Team: only reports assigned to themselves
     - Status: Assigned, In Review, Accepted, Rejected
     """
-    # 1. Cek report exists
     report = db.query(Report).filter(Report.id == report_id).first()
     if not report:
         raise HTTPException(
@@ -301,23 +302,19 @@ async def get_assigned_report_detail(
             detail=f"Report with ID {report_id} not found"
         )
     
-    # 2. 🔥 CEK AKSES
-    if current_user.role_id == 1:  # Admin
-        # Admin bisa lihat semua report yang sudah di-assign
+    if current_user.role_id == 1:  
         if report.assigned_to is None:
             raise HTTPException(
                 status_code=400,
                 detail="This report has not been assigned yet"
             )
-    else:  # Security Team
-        # Security Team cuma bisa lihat report yang di-assign ke dirinya
+    else:  
         if report.assigned_to != current_user.id:
             raise HTTPException(
                 status_code=403,
                 detail="This report is not assigned to you"
             )
         
-        # Security Team hanya bisa lihat report dengan status tertentu
         valid_statuses = ["Assigned", "In Review", "Accepted", "Rejected"]
         if report.status not in valid_statuses:
             raise HTTPException(
@@ -325,11 +322,9 @@ async def get_assigned_report_detail(
                 detail=f"Report status is {report.status}. Cannot view this report."
             )
     
-    # 3. Ambil data tambahan
     asset = db.query(Asset).filter(Asset.id == report.asset_id).first()
     user = db.query(User).filter(User.id == report.user_id).first()
     
-    # 4. Ambil evidence
     evidences = db.query(ReportEvidence).filter(
         ReportEvidence.report_id == report_id
     ).order_by(ReportEvidence.created_at.desc()).all()
@@ -345,6 +340,7 @@ async def get_assigned_report_detail(
             "file_name": evidence.file_name,
             "file_size": evidence.file_size,
             "content_type": evidence.content_type,
+            "type": evidence.type,  
             "created_at": evidence.created_at,
             "url": presigned_url
         })
