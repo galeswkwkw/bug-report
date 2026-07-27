@@ -13,7 +13,7 @@ def seed_data():
     
     roles = [
         {"name": "Admin"},
-        {"name": "Researcher"},
+        {"name": "Bug Hunter"},
         {"name": "Reviewer"}
     ]
     

@@ -57,9 +57,9 @@ async def register(
     if len(password) < 8:
         raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
     
-    role = db.query(Role).filter(Role.name == "Researcher").first()
+    role = db.query(Role).filter(Role.name == "Bug Hunter").first()
     if not role:
-        raise HTTPException(status_code=500, detail="Researcher role not found. Please run seed data.")
+        raise HTTPException(status_code=500, detail="Bug Hunter role not found. Please run seed data.")
     
     user_data = {
         "role_id": role.id,
