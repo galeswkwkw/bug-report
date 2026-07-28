@@ -16,7 +16,7 @@ class EmailService:
     def send_reset_password_email(to_email: str, reset_token: str, frontend_url: str = None):
         """Send password reset email"""
         if not frontend_url:
-            frontend_url = "http://localhost:5173/reset-password"
+            frontend_url = "https://bugbounty.sprintasia.net/reset-password"
         
         reset_link = f"{frontend_url}?token={reset_token}"
         
