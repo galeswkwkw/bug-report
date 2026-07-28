@@ -19,17 +19,17 @@ class PasswordResetService:
     @staticmethod
     def create_reset_token(db: Session, user_id: int) -> PasswordResetToken:
         """Create password reset token for user"""
-  
+        wib = pytz.timezone('Asia/Jakarta')
+        now_wib = datetime.now(wib)
+        
+        # Deactivate old tokens
         db.query(PasswordResetToken).filter(
             PasswordResetToken.user_id == user_id,
             PasswordResetToken.used_at.is_(None),
-            PasswordResetToken.expired_at > datetime.now(pytz.timezone('Asia/Jakarta'))
-        ).update({"expired_at": datetime.now(pytz.timezone('Asia/Jakarta'))})
+            PasswordResetToken.expired_at < now_wib
+        ).update({"expired_at": now_wib})
         
         token = PasswordResetService.generate_token()
-        
-        wib = pytz.timezone('Asia/Jakarta')
-        now_wib = datetime.now(wib)
         expired_at_wib = now_wib + timedelta(minutes=PasswordResetService.TOKEN_EXPIRY_MINUTES)
         
         reset_token = PasswordResetToken(
@@ -57,16 +57,20 @@ class PasswordResetService:
         
         if reset_token.used_at is not None:
             return {"valid": False, "message": "Token has already been used"}
-     
+        
+        # ✅ Pakai WIB dan bandingkan dengan expired_at
         wib = pytz.timezone('Asia/Jakarta')
         now_wib = datetime.now(wib)
         
-        if reset_token.expired_at < now_wib:
+        
+        expired_at_wib = reset_token.expired_at.replace(tzinfo=wib)
+        
+        if expired_at_wib < now_wib:
             return {"valid": False, "message": "Reset password link has expired"}
         
         return {
             "valid": True, 
-            "expires_at": reset_token.expired_at
+            "expires_at": expired_at_wib
         }
     
     @staticmethod
@@ -87,7 +91,8 @@ class PasswordResetService:
         from app.auth import hash_password
         user.password_hash = hash_password(new_password)
         
-        reset_token.used_at = datetime.now(pytz.timezone('Asia/Jakarta'))
+        wib = pytz.timezone('Asia/Jakarta')
+        reset_token.used_at = datetime.now(wib)
         
         db.commit()
         
