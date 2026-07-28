@@ -1,3 +1,4 @@
+
 from sqlalchemy import Column, BigInteger, SmallInteger, String, Text, Integer, TIMESTAMP, CheckConstraint, ForeignKey
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
@@ -32,3 +33,4 @@ class User(Base):
     
     # Relationships
     documents = relationship("UserDocument", back_populates="user", cascade="all, delete-orphan")
+    password_reset_tokens = relationship("PasswordResetToken", back_populates="user", cascade="all, delete-orphan")  

@@ -7,18 +7,25 @@ import uuid
 import os
 
 from app.database import SessionLocal
-from app.models import User, Role, Department, UserDocument, DocumentType
+from app.models import User, Role, Department, UserDocument, DocumentType, PasswordResetToken  # ✅ Tambahkan PasswordResetToken di sini
 from app.schemas import (
-    RegisterInternalRequest,
-    RegisterExternalRequest,
-    LoginRequest,
-    LoginResponse,
-    RegisterResponse
+    RegisterInternalRequest, 
+    RegisterExternalRequest, 
+    LoginRequest, 
+    LoginResponse, 
+    RegisterResponse,
+    ForgotPasswordRequest,
+    ValidateResetTokenResponse,
+    ResetPasswordRequest,
+    ResetPasswordResponse
 )
 from app.auth import create_access_token, create_refresh_token 
 from app.auth import hash_password, verify_password, create_access_token
 from app.minio_client import minio_client
 from app.config import Config
+from app.services.password_reset_service import PasswordResetService
+from app.services.email_service import EmailService
+
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -28,6 +35,100 @@ def get_db():
         yield db
     finally:
         db.close()
+
+# POST /auth/forgot-password
+
+@router.post("/forgot-password")
+async def forgot_password(
+    request: ForgotPasswordRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Request password reset - sends email with reset link
+    Always returns same response for security
+    """
+    
+    user = db.query(User).filter(User.email == request.email).first()
+    
+    
+    if user:
+        try:
+            
+            reset_token = PasswordResetService.create_reset_token(db, user.id)
+            
+            frontend_url = "http://localhost:3000/reset-password"  
+            EmailService.send_reset_password_email(
+                to_email=user.email,
+                reset_token=reset_token.token,
+                frontend_url=frontend_url
+            )
+        except Exception as e:
+            
+            print(f"Error in forgot-password: {str(e)}")
+    
+    # Generic response for security
+    return {
+        "message": "If the email is registered, a password reset link has been sent."
+    }
+
+
+# GET /auth/reset-password/validate
+@router.get("/reset-password/validate", response_model=ValidateResetTokenResponse)
+async def validate_reset_token(
+    token: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Validate reset token
+    """
+    result = PasswordResetService.validate_token(db, token)
+    
+    return ValidateResetTokenResponse(
+        valid=result.get("valid", False),
+        expires_at=result.get("expires_at"),
+        message=result.get("message")
+    )
+
+
+# POST /auth/reset-password
+
+@router.post("/reset-password", response_model=ResetPasswordResponse)
+async def reset_password(
+    request: ResetPasswordRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Reset password using token
+    """
+    
+    if request.new_password != request.confirm_password:
+        raise HTTPException(
+            status_code=400,
+            detail="Passwords do not match"
+        )
+    
+    if len(request.new_password) < 8:
+        raise HTTPException(
+            status_code=400,
+            detail="Password must be at least 8 characters"
+        )
+    
+    
+    result = PasswordResetService.reset_password(
+        db, 
+        request.token, 
+        request.new_password
+    )
+    
+    if not result["success"]:
+        raise HTTPException(
+            status_code=400,
+            detail=result["message"]
+        )
+    
+    return ResetPasswordResponse(
+        message=result["message"]
+    )
 
 @router.post("/register", response_model=RegisterResponse)
 async def register(

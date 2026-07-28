@@ -31,3 +31,11 @@ class Config:
     ALLOWED_EVIDENCE_EXTENSIONS = [".pdf", ".csv", ".jpg", ".png", ".mp4", ".tar.gz"]
     ALLOWED_RESULT_EXTENSIONS = [".pdf", ".csv", ".jpg", ".png", ".mp4", ".tar.gz"]
     MAX_EVIDENCE_FILE_SIZE = 100 * 1024 * 1024
+
+    # SMTP
+    SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
+    SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+    SMTP_USER = os.getenv("SMTP_USER", "")
+    SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
+    SMTP_FROM_EMAIL = os.getenv("SMTP_FROM_EMAIL", "")
+    SMTP_TLS = os.getenv("SMTP_TLS", "True").lower() == "true"

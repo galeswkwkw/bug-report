@@ -20,7 +20,11 @@ from app.schemas.schemas import (
     ReviewRequest,
     AssignReportRequest,
     ReportUpdateByResearcherRequest,
-    MultipleUploadResponse
+    MultipleUploadResponse,
+    ForgotPasswordRequest,  
+    ValidateResetTokenResponse,  
+    ResetPasswordRequest,  
+    ResetPasswordResponse 
 )
 
 __all__ = [
@@ -45,5 +49,9 @@ __all__ = [
     "ReviewRequest",
     "AssignReportRequest",
     "ReportUpdateByResearcherRequest",
-    "MultipleUploadResponse"
+    "MultipleUploadResponse",
+     "ForgotPasswordRequest",
+    "ValidateResetTokenResponse",
+    "ResetPasswordRequest",
+    "ResetPasswordResponse"
 ]

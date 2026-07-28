@@ -4,6 +4,21 @@ from datetime import datetime
 from fastapi import File, UploadFile
 
 # AUTH SCHEMAS
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+class ValidateResetTokenResponse(BaseModel):
+    valid: bool
+    expires_at: Optional[datetime] = None
+    message: Optional[str] = None
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+    confirm_password: str
+
+class ResetPasswordResponse(BaseModel):
+    message: str
 
 class RegisterInternalRequest(BaseModel):
     researcher_type: str = "internal"
@@ -67,15 +82,7 @@ class LoginResponse(BaseModel):
     expires_in: int
     user: dict
 
-class RegisterResponse(BaseModel):
-    success: bool
-    message: str
-    status: str
-    user_id: Optional[int] = None
-
-# PROFILE SCHEMAS
-
-
+# PROFILE SCHEMA
 class ProfileResponse(BaseModel):
     id: int
     role_id: int
@@ -268,3 +275,4 @@ class ReportUpdateByResearcherRequest(BaseModel):
     impact: Optional[str] = None
     affected_endpoint: Optional[str] = None 
     severity: Optional[str] = Field(None, pattern="^(Critical|High|Medium|Low|Informational)$")
+

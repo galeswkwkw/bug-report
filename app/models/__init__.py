@@ -8,6 +8,7 @@ from app.models.asset import Asset
 from app.models.report import Report
 from app.models.report_evidence import ReportEvidence 
 from app.models.notification import Notification
+from app.models.password_reset_token import PasswordResetToken  
 
 __all__ = [
     "Role",
@@ -19,5 +20,6 @@ __all__ = [
     "Asset",
     "Report",
     "ReportEvidence",
-    "Notification" 
+    "Notification",
+    "PasswordResetToken"  
 ]
