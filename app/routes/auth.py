@@ -75,7 +75,7 @@ async def forgot_password(
             detail="Failed to send reset email. Please try again later."
         )
 
-@router.post("/auth/change-password")
+@router.post("/change-password")
 async def change_password(
     request: dict,
     db: Session = Depends(get_db),
