@@ -375,6 +375,7 @@ async def get_user_detail(
     doc_list = []
     for doc in documents:
         doc_type = db.query(DocumentType).filter(DocumentType.id == doc.document_type_id).first()
+        url = minio_client.get_presigned_url(object_name=doc.object_name, expiry=3600)
         doc_list.append({
             "id": doc.id,
             "document_type": doc_type.name if doc_type else None,
@@ -382,7 +383,8 @@ async def get_user_detail(
             "object_name": doc.object_name,
             "file_size": doc.file_size,
             "content_type": doc.content_type,
-            "created_at": doc.created_at
+            "created_at": doc.created_at,
+            "url": url
         })
     
     return {
