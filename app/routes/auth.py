@@ -19,7 +19,7 @@ from app.schemas import (
     ResetPasswordRequest,
     ResetPasswordResponse
 )
-from app.auth import create_access_token, create_refresh_token 
+from app.auth import create_access_token, create_refresh_token, get_current_user   
 from app.auth import hash_password, verify_password, create_access_token
 from app.minio_client import minio_client
 from app.config import Config
@@ -36,8 +36,7 @@ def get_db():
     finally:
         db.close()
 
-# POST /auth/forgot-password
-
+# app/routes/auth.py
 @router.post("/forgot-password")
 async def forgot_password(
     request: ForgotPasswordRequest,
@@ -45,30 +44,82 @@ async def forgot_password(
 ):
     """
     Request password reset - sends email with reset link
-    Always returns same response for security
     """
-    
     user = db.query(User).filter(User.email == request.email).first()
     
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail="Email address not found. Please register first."
+        )
     
-    if user:
-        try:
-            
-            reset_token = PasswordResetService.create_reset_token(db, user.id)
-            
-            frontend_url = "http://localhost:3000/reset-password"  
-            EmailService.send_reset_password_email(
-                to_email=user.email,
-                reset_token=reset_token.token,
-                frontend_url=frontend_url
-            )
-        except Exception as e:
-            
-            print(f"Error in forgot-password: {str(e)}")
+    try:
+        reset_token = PasswordResetService.create_reset_token(db, user.id)
+        
+        frontend_url = "https://bugbounty.sprintasia.net/reset-password"
+        EmailService.send_reset_password_email(
+            to_email=user.email,
+            reset_token=reset_token.token,
+            frontend_url=frontend_url
+        )
+        
+        return {
+            "success": True,
+            "message": "Password reset link has been sent to your email address."
+        }
+        
+    except Exception as e:
+        print(f"Error in forgot-password: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to send reset email. Please try again later."
+        )
+
+@router.post("/auth/change-password")
+async def change_password(
+    request: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Change user password (requires current password).
+    """
+    current_password = request.get("current_password")
+    new_password = request.get("new_password")
+    confirm_password = request.get("confirm_password")
     
-    # Generic response for security
+    
+    if not current_password:
+        raise HTTPException(status_code=400, detail="current_password is required")
+    if not new_password:
+        raise HTTPException(status_code=400, detail="new_password is required")
+    if not confirm_password:
+        raise HTTPException(status_code=400, detail="confirm_password is required")
+    
+    
+    from app.auth import verify_password
+    if not verify_password(current_password, current_user.password_hash):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    
+    
+    if new_password != confirm_password:
+        raise HTTPException(status_code=400, detail="Passwords do not match")
+    
+    
+    if len(new_password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+    
+    
+    from app.auth import hash_password
+    current_user.password_hash = hash_password(new_password)
+    
+    
+    
+    
+    db.commit()
+    
     return {
-        "message": "If the email is registered, a password reset link has been sent."
+        "message": "Password changed successfully."
     }
 
 

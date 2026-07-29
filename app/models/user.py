@@ -1,5 +1,5 @@
 
-from sqlalchemy import Column, BigInteger, SmallInteger, String, Text, Integer, TIMESTAMP, CheckConstraint, ForeignKey
+from sqlalchemy import Column, BigInteger, SmallInteger, String, Text, Integer, TIMESTAMP, CheckConstraint, ForeignKey, TIMESTAMP, Boolean
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.database import Base
@@ -22,6 +22,7 @@ class User(Base):
     
     position = Column(String(100), nullable=True)
     office_location = Column(String(200), nullable=True)
+    must_change_password = Column(Boolean, default=False)
     
     created_at = Column(TIMESTAMP, default=func.now())
     updated_at = Column(TIMESTAMP, default=func.now(), onupdate=func.now())

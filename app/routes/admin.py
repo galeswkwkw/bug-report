@@ -6,11 +6,14 @@ from datetime import datetime
 
 from app.database import SessionLocal
 from app.models import User, Department, UserDocument, DocumentType, Role, Report    
-from app.schemas import ( 
-    AdminActionResponse
-)
-from app.auth import get_current_admin
+from app.schemas import (AdminActionResponse)
+from app.auth import get_current_admin, get_current_user
 from app.minio_client import minio_client
+from app.services.password_reset_service import PasswordResetService
+from app.services.email_service import EmailService
+import secrets
+import string
+
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -24,7 +27,6 @@ def get_db():
 
 
 # GET /admin/users - GET ALL USERS (ADMIN ONLY) - DENGAN DOKUMEN!
-
 @router.get("/users")
 async def get_all_users(
     current_user: User = Depends(get_current_admin),
@@ -40,7 +42,7 @@ async def get_all_users(
     
     Query Parameters:
     - status: filter by status (Pending, Active, Rejected)
-    - role: filter by role name (admin, security_team, researcher)
+    - role: filter by role name (admin, security_team, bug_hunter)
     - search: search by name or email
     - limit: number of results per page (default 50)
     - offset: number of results to skip (default 0)
@@ -54,7 +56,7 @@ async def get_all_users(
         role_mapping = {
             "admin": 1,
             "security_team": 2,
-            "researcher": 3
+            "bug_hunter": 3
         }
         role_id = role_mapping.get(role.lower())
         if role_id:
@@ -62,7 +64,7 @@ async def get_all_users(
         else:
             raise HTTPException(
                 status_code=400,
-                detail=f"Invalid role. Must be: admin, security_team, researcher"
+                detail=f"Invalid role. Must be: admin, security_team, bug_hunter"
             )
     
     if search:
@@ -261,9 +263,85 @@ async def get_rejected_users(
     }
 
 
+@router.post("/users/{user_id}/reset-password")
+async def admin_reset_password(
+    user_id: int,
+    request: dict,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Reset password for user (Admin only).
+    Method: "email" or "temporary_password"
+    
+    - Email: Send reset link via email
+    - Temporary Password: Generate temporary password
+    """
+    
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    from app.auth import get_current_admin
+    is_admin = db.query(Role).filter(Role.id == current_user.role_id, Role.name == "Admin").first()
+    
+    if not is_admin and current_user.id != user_id:
+        raise HTTPException(
+            status_code=403,
+            detail="You can only reset your own password"
+        )
+    method = request.get("method", "email")
+    
+    if method == "email":
+        
+        try:
+            reset_token = PasswordResetService.create_reset_token(db, user.id)
+            
+            frontend_url = "https://bugbounty.sprintasia.net/reset-password"
+            EmailService.send_reset_password_email(
+                to_email=user.email,
+                reset_token=reset_token.token,
+                frontend_url=frontend_url
+            )
+            
+            return {
+                "message": "Password reset link has been sent successfully."
+            }
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to send reset email: {str(e)}"
+            )
+    
+    elif method == "temporary_password":
+        
+        from app.auth import hash_password
+        
+        
+        alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
+        temp_password = ''.join(secrets.choice(alphabet) for _ in range(12))
+        
+        
+        user.password_hash = hash_password(temp_password)
+        
+        
+        
+        
+        db.commit()
+        
+        return {
+            "temporary_password": temp_password,
+            "must_change_password": True
+        }
+    
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid method. Must be 'email' or 'temporary_password'"
+        )
+
 
 # GET /admin/users/{id} - GET USER DETAIL
-
 @router.get("/users/{user_id}")
 async def get_user_detail(
     user_id: int,
@@ -423,18 +501,20 @@ async def update_user(
 async def update_user_status(
     user_id: int,
     request: dict,
-    current_user: User = Depends(get_current_admin),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
     Update user status by ID (Admin only).
     Status options: active, inactive
     """
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
+    
+    is_admin = db.query(Role).filter(Role.id == current_user.role_id, Role.name == "Admin").first()
+    
+    if not is_admin and current_user.id != user_id:
         raise HTTPException(
-            status_code=404,
-            detail=f"User with ID {user_id} not found"
+            status_code=403,
+            detail="You can only update your own status"
         )
     
     status = request.get("status")

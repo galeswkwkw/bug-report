@@ -101,3 +101,18 @@ def get_current_admin_or_security(current_user: User = Depends(get_current_activ
             detail="Admin or Security Team access required"
         )
     return current_user
+
+def check_self_or_admin(current_user: User, target_user_id: int, db: Session):
+    """
+    Check if current user is admin or the target user themselves.
+    """
+    # Check if admin
+    role = db.query(Role).filter(Role.id == current_user.role_id).first()
+    if role and role.name == "Admin":
+        return True
+    
+    # Check if self
+    if current_user.id == target_user_id:
+        return True
+    
+    return False
