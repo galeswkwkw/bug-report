@@ -74,7 +74,6 @@ async def forgot_password(
             status_code=500,
             detail="Failed to send reset email. Please try again later."
         )
-
 @router.post("/change-password")
 async def change_password(
     request: dict,
@@ -84,10 +83,12 @@ async def change_password(
     """
     Change user password (requires current password).
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    
     current_password = request.get("current_password")
     new_password = request.get("new_password")
     confirm_password = request.get("confirm_password")
-    
     
     if not current_password:
         raise HTTPException(status_code=400, detail="current_password is required")
@@ -96,27 +97,38 @@ async def change_password(
     if not confirm_password:
         raise HTTPException(status_code=400, detail="confirm_password is required")
     
-    
     from app.auth import verify_password
     if not verify_password(current_password, current_user.password_hash):
         raise HTTPException(status_code=400, detail="Current password is incorrect")
     
-    
     if new_password != confirm_password:
         raise HTTPException(status_code=400, detail="Passwords do not match")
-    
     
     if len(new_password) < 8:
         raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
     
-    
     from app.auth import hash_password
+    
+    # ✅ LOG: Sebelum perubahan
+    logger.info(f"🔍 BEFORE: user_id={current_user.id}, must_change_password={current_user.must_change_password}")
+    
     current_user.password_hash = hash_password(new_password)
-    current_user.must_change_password = False 
+    current_user.must_change_password = False
     
+    # ✅ LOG: Setelah perubahan
+    logger.info(f"🔍 AFTER SET: must_change_password={current_user.must_change_password}")
     
+    try:
+        db.commit()
+        logger.info(f"✅ db.commit() SUCCESS for user_id={current_user.id}")
+    except Exception as e:
+        logger.error(f"❌ db.commit() ERROR: {str(e)}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
     
-    db.commit()
+    # ✅ LOG: Setelah commit
+    db.refresh(current_user)
+    logger.info(f"🔍 AFTER REFRESH: must_change_password={current_user.must_change_password}")
     
     return {
         "message": "Password changed successfully."
