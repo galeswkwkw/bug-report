@@ -109,26 +109,21 @@ async def change_password(
     
     from app.auth import hash_password
     
-    # ✅ LOG: Sebelum perubahan
-    logger.info(f"🔍 BEFORE: user_id={current_user.id}, must_change_password={current_user.must_change_password}")
-    
+    # ✅ Update password
     current_user.password_hash = hash_password(new_password)
     current_user.must_change_password = False
     
-    # ✅ LOG: Setelah perubahan
-    logger.info(f"🔍 AFTER SET: must_change_password={current_user.must_change_password}")
-    
+    # ✅ Commit perubahan
     try:
         db.commit()
-        logger.info(f"✅ db.commit() SUCCESS for user_id={current_user.id}")
+        logger.info(f"✅ Password changed for user_id={current_user.id}")
     except Exception as e:
-        logger.error(f"❌ db.commit() ERROR: {str(e)}")
         db.rollback()
+        logger.error(f"❌ db.commit() ERROR: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
     
-    # ✅ LOG: Setelah commit
-    db.refresh(current_user)
-    logger.info(f"🔍 AFTER REFRESH: must_change_password={current_user.must_change_password}")
+    # ❌ HAPUS BARIS INI - menyebabkan error!
+    # db.refresh(current_user)  # <- HAPUS!
     
     return {
         "message": "Password changed successfully."
