@@ -98,7 +98,14 @@ async def change_password(
         raise HTTPException(status_code=400, detail="confirm_password is required")
     
     from app.auth import verify_password
-    if not verify_password(current_password, current_user.password_hash):
+    
+    # ✅ Ambil ulang user dari database (refresh)
+    user = db.query(User).filter(User.id == current_user.id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # ✅ Verifikasi password dengan user yang fresh
+    if not verify_password(current_password, user.password_hash):
         raise HTTPException(status_code=400, detail="Current password is incorrect")
     
     if new_password != confirm_password:
@@ -109,21 +116,23 @@ async def change_password(
     
     from app.auth import hash_password
     
-    # ✅ Update password
-    current_user.password_hash = hash_password(new_password)
-    current_user.must_change_password = False
+    # ✅ Update user yang fresh dari database
+    user.password_hash = hash_password(new_password)
+    user.must_change_password = False
     
-    # ✅ Commit perubahan
+    logger.info(f"🔍 BEFORE COMMIT: user_id={user.id}, must_change_password={user.must_change_password}")
+    
     try:
         db.commit()
-        logger.info(f"✅ Password changed for user_id={current_user.id}")
+        logger.info(f"✅ Password changed for user_id={user.id}")
     except Exception as e:
         db.rollback()
         logger.error(f"❌ db.commit() ERROR: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
     
-    # ❌ HAPUS BARIS INI - menyebabkan error!
-    # db.refresh(current_user)  # <- HAPUS!
+    # ✅ Verifikasi setelah commit
+    db.refresh(user)
+    logger.info(f"🔍 AFTER COMMIT: user_id={user.id}, must_change_password={user.must_change_password}")
     
     return {
         "message": "Password changed successfully."

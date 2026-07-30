@@ -1,5 +1,5 @@
 
-from sqlalchemy import Column, BigInteger, SmallInteger, String, Text, Integer, TIMESTAMP, CheckConstraint, ForeignKey, TIMESTAMP, Boolean
+from sqlalchemy import Column, BigInteger, SmallInteger, String, Text, Integer, TIMESTAMP, CheckConstraint, ForeignKey, Boolean
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.database import Base
