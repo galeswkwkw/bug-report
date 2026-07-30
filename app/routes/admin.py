@@ -323,7 +323,7 @@ async def admin_reset_password(
         
         
         user.password_hash = hash_password(temp_password)
-        
+        user.must_change_password = True
         
         
         
