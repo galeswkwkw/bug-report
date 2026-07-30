@@ -112,7 +112,7 @@ async def change_password(
     
     from app.auth import hash_password
     current_user.password_hash = hash_password(new_password)
-    
+    current_user.must_change_password = False 
     
     
     
@@ -337,7 +337,8 @@ async def login(
             "role": role_name.name if role_name else None,
             "department": department_name.name if department_name else None,
             "status": user.status,
-            "total_point": user.total_point
+            "total_point": user.total_point,
+            "must_change_password": user.must_change_password
         }
     )
 
