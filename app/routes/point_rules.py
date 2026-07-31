@@ -19,6 +19,7 @@ def get_db():
 
 
 # GET /point-rules - GET ALL POINT RULES
+@router.get("")
 @router.get("/")
 async def get_point_rules(
     current_user: User = Depends(get_current_admin),
