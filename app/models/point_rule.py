@@ -1,4 +1,4 @@
-from sqlalchemy import Column, SmallInteger, String, Integer, TIMESTAMP
+from sqlalchemy import Column, SmallInteger, String, Integer, TIMESTAMP, Text  
 from sqlalchemy.sql import func
 from app.database import Base
 
@@ -9,3 +9,4 @@ class PointRule(Base):
     severity = Column(String(20), nullable=False, unique=True)
     point = Column(Integer, nullable=False)
     created_at = Column(TIMESTAMP, default=func.now())
+    description = Column(Text, nullable=True)
