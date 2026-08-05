@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import Optional
 
 from app.database import SessionLocal
-from app.models import PointRule
+from app.models import PointRule, Role  
 from app.auth import get_current_admin, get_current_user
 from app.models.user import User
 
@@ -28,7 +28,7 @@ async def get_point_rules(
     """
     Get all point rules (Admin & Security Team only).
     """
-    # ✅ CEK ROLE: Hanya Admin atau Security Team
+
     role = db.query(Role).filter(Role.id == current_user.role_id).first()
     
     if role.name not in ["Admin", "Security Team"]:
