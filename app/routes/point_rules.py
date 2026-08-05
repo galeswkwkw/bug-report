@@ -22,12 +22,21 @@ def get_db():
 @router.get("")
 @router.get("/")
 async def get_point_rules(
-    current_user: User = Depends(get_current_admin),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Get all point rules (Admin only).
+    Get all point rules (Admin & Security Team only).
     """
+    # ✅ CEK ROLE: Hanya Admin atau Security Team
+    role = db.query(Role).filter(Role.id == current_user.role_id).first()
+    
+    if role.name not in ["Admin", "Security Team"]:
+        raise HTTPException(
+            status_code=403,
+            detail="Access denied. Only Admin and Security Team can view point rules."
+        )
+    
     point_rules = db.query(PointRule).order_by(PointRule.id).all()
     
     return {
