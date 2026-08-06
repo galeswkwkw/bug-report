@@ -333,7 +333,7 @@ async def get_assigned_report_detail(
     for evidence in evidences:
         presigned_url = minio_client.get_presigned_url(
             object_name=evidence.object_name,
-            expiry=3600
+            expiry=300
         )
         evidence_list.append({
             "id": evidence.id,

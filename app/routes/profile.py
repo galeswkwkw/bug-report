@@ -233,7 +233,7 @@ async def get_documents(
         # Get presigned URL (tanpa bucket_name)
         presigned_url = minio_client.get_presigned_url(
             object_name=doc.object_name,
-            expiry=3600
+            expiry=300
         )
         result.append({
             "id": doc.id,

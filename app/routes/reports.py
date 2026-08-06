@@ -747,7 +747,7 @@ async def update_evidence(
     
     presigned_url = minio_client.get_presigned_url(
         object_name=object_name,
-        expiry=3600
+        expiry=300
     )
     
     return ReportEvidenceResponse(
@@ -1068,7 +1068,7 @@ async def get_report_evidences(
     for evidence in evidences:
         presigned_url = minio_client.get_presigned_url(
             object_name=evidence.object_name,
-            expiry=3600
+            expiry=300
         )
         result.append(
             ReportEvidenceResponse(
@@ -1366,7 +1366,7 @@ async def upload_evidence(
             
             presigned_url = minio_client.get_presigned_url(
                 object_name=object_name,
-                expiry=3600
+                expiry=300
             )
             
             # Prepare response
