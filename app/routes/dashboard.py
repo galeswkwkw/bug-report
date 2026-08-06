@@ -16,6 +16,7 @@ def get_db():
         db.close()
 
 
+# GET /dashboard/researcher - RESEARCHER DASHBOARD
 @router.get("/researcher")
 async def get_researcher_dashboard(
     current_user: User = Depends(get_current_active_user),
@@ -49,13 +50,14 @@ async def get_researcher_dashboard(
     ).count()
     leaderboard_rank = higher_rank + 1
     
-    severity_distribution = {
-        "critical": 0,
-        "high": 0,
-        "medium": 0,
-        "low": 0,
-        "informational": 0
-    }
+    # 🔥 AMBIL DATA SEVERITY DARI POINT_RULES (HANYA YANG ACTIVE!)
+    point_rules = db.query(PointRule).filter(
+        PointRule.is_active == True
+    ).order_by(PointRule.point.desc()).all()
+    
+    severity_distribution = {}
+    for rule in point_rules:
+        severity_distribution[rule.severity.lower()] = 0
     
     severity_stats = db.query(
         Report.severity,
