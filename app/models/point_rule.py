@@ -10,3 +10,4 @@ class PointRule(Base):
     point = Column(Integer, nullable=False)
     created_at = Column(TIMESTAMP, default=func.now())
     description = Column(Text, nullable=True)
+    is_active = Column(Boolean, default=True)
