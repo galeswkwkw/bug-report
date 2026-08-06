@@ -10,6 +10,7 @@ from app.models import Report, Asset, User, PointRule, ReportEvidence
 from app.schemas import ReviewRequest, ReportResponse
 from app.auth import get_current_active_user
 from app.minio_client import minio_client
+from sqlalchemy.exc import IntegrityError
 
 router = APIRouter(prefix="/reviews", tags=["Reviews"])
 
