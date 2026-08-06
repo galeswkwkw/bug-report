@@ -93,9 +93,9 @@ async def get_monitoring(
             "total_reports": asset.total_reports
         })
     
-    # 4. SEVERITY DISTRIBUTION (HANYA YANG ACTIVE)
+    # 4. SEVERITY DISTRIBUTION
     active_severities = db.query(PointRule.severity).filter(
-        PointRule.is_active == True
+        PointRule.is_active == True  # ✅ HANYA YANG AKTIF
     ).all()
     active_severity_list = [s[0] for s in active_severities]
 
@@ -108,13 +108,18 @@ async def get_monitoring(
         func.count(Report.id).label("total")
     ).filter(
         Report.status == "Accepted",
-        Report.severity.in_(active_severity_list)  # ✅ FILTER!
+        Report.severity.in_(active_severity_list)  # ✅ HANYA SEVERITY AKTIF
     ).group_by(Report.severity).all()
 
     for stat in severity_stats:
         key = stat.severity.lower()
         if key in severity_distribution:
             severity_distribution[key] = stat.total
+
+    # ✅ TAMPILKAN SEMUA SEVERITY AKTIF (TERMASUK YANG NILAI 0)
+    return {
+        "severity_distribution": severity_distribution  # ✅ TETAP MUNCUL
+    }
     
     return {
         "success": True,
