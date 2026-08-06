@@ -172,7 +172,7 @@ async def get_security_dashboard(
         }
     }
 
-
+# GET /dashboard/admin - ADMIN DASHBOARD
 @router.get("/admin")
 async def get_admin_dashboard(
     current_user: User = Depends(get_current_admin),
@@ -193,13 +193,12 @@ async def get_admin_dashboard(
     invalid_reports = db.query(Report).filter(Report.status == "Rejected").count()
     total_assets = db.query(Asset).count()
     
-    severity_distribution = {
-        "critical": 0,
-        "high": 0,
-        "medium": 0,
-        "low": 0,
-        "informational": 0
-    }
+    # 🔥 AMBIL DATA SEVERITY DARI POINT_RULES (BUKAN HARDCODE)
+    point_rules = db.query(PointRule).order_by(PointRule.point.desc()).all()
+    
+    severity_distribution = {}
+    for rule in point_rules:
+        severity_distribution[rule.severity.lower()] = 0
     
     severity_stats = db.query(
         Report.severity,
