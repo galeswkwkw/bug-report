@@ -105,24 +105,26 @@ async def get_monitoring(
     # 4. SEVERITY DISTRIBUTION (HANYA YANG ACTIVE)
     
     
+    # 4. SEVERITY DISTRIBUTION (HANYA YANG ACTIVE)
     active_severities = db.query(PointRule.severity).filter(
         PointRule.is_active == True
     ).all()
-    active_severity_list = [s[0].lower() for s in active_severities]
-    
-    
+    active_severity_list = [s[0] for s in active_severities]  # ✅ List severity aktif
+
+    # Inisialisasi dictionary
     severity_distribution = {}
     for severity in active_severity_list:
-        severity_distribution[severity] = 0
-    
-    
+        severity_distribution[severity.lower()] = 0
+
+    # ✅ HANYA AMBIL SEVERITY YANG AKTIF
     severity_stats = db.query(
         Report.severity,
         func.count(Report.id).label("total")
     ).filter(
-        Report.status == "Accepted"
+        Report.status == "Accepted",
+        Report.severity.in_(active_severity_list)  # ✅ FILTER!
     ).group_by(Report.severity).all()
-    
+
     for stat in severity_stats:
         key = stat.severity.lower()
         if key in severity_distribution:

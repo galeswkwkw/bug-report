@@ -50,21 +50,23 @@ async def get_researcher_dashboard(
     ).count()
     leaderboard_rank = higher_rank + 1
     
-    # 🔥 AMBIL DATA SEVERITY DARI POINT_RULES (HANYA YANG ACTIVE!)
-    point_rules = db.query(PointRule).filter(
+    # ✅ AMBIL SEVERITY AKTIF DARI POINT_RULES
+    active_severities = db.query(PointRule.severity).filter(
         PointRule.is_active == True
-    ).order_by(PointRule.point.desc()).all()
+    ).all()
+    active_severity_list = [s[0] for s in active_severities]
     
     severity_distribution = {}
-    for rule in point_rules:
-        severity_distribution[rule.severity.lower()] = 0
+    for severity in active_severity_list:
+        severity_distribution[severity.lower()] = 0
     
     severity_stats = db.query(
         Report.severity,
         func.count(Report.id).label("total")
     ).filter(
         Report.user_id == current_user.id,
-        Report.status == "Accepted"
+        Report.status == "Accepted",
+        Report.severity.in_(active_severity_list)  # ✅ FILTER!
     ).group_by(Report.severity).all()
     
     total_accepted = db.query(Report).filter(
@@ -121,6 +123,8 @@ async def get_researcher_dashboard(
         }
     }
 
+
+# GET /dashboard/security - SECURITY DASHBOARD
 @router.get("/security")
 async def get_security_dashboard(
     current_user: User = Depends(get_current_security),
@@ -129,36 +133,30 @@ async def get_security_dashboard(
     """
     Get dashboard statistics for Security Team.
     """
-    
     assigned_count = db.query(Report).filter(
         Report.assigned_to == current_user.id,
         Report.status == "Assigned"
     ).count()
-    
     
     in_review_count = db.query(Report).filter(
         Report.assigned_to == current_user.id,
         Report.status == "In Review"
     ).count()
     
-    
     reviewed_count = db.query(Report).filter(
         Report.assigned_to == current_user.id,
         Report.status.in_(["Accepted", "Rejected"])
     ).count()
-    
     
     valid_count = db.query(Report).filter(
         Report.assigned_to == current_user.id,
         Report.status == "Accepted"
     ).count()
     
-    
     invalid_count = db.query(Report).filter(
         Report.assigned_to == current_user.id,
         Report.status == "Rejected"
     ).count()
-    
     
     total_assigned = assigned_count + in_review_count + reviewed_count
     
@@ -173,6 +171,8 @@ async def get_security_dashboard(
             "total_assigned": total_assigned
         }
     }
+
+
 # GET /dashboard/admin - ADMIN DASHBOARD
 @router.get("/admin")
 async def get_admin_dashboard(
@@ -194,20 +194,22 @@ async def get_admin_dashboard(
     invalid_reports = db.query(Report).filter(Report.status == "Rejected").count()
     total_assets = db.query(Asset).count()
     
-    # 🔥 AMBIL DATA SEVERITY DARI POINT_RULES (HANYA YANG ACTIVE!)
-    point_rules = db.query(PointRule).filter(
+    # ✅ AMBIL SEVERITY AKTIF DARI POINT_RULES
+    active_severities = db.query(PointRule.severity).filter(
         PointRule.is_active == True
-    ).order_by(PointRule.point.desc()).all()
+    ).all()
+    active_severity_list = [s[0] for s in active_severities]
     
     severity_distribution = {}
-    for rule in point_rules:
-        severity_distribution[rule.severity.lower()] = 0
+    for severity in active_severity_list:
+        severity_distribution[severity.lower()] = 0
     
     severity_stats = db.query(
         Report.severity,
         func.count(Report.id).label("total")
     ).filter(
-        Report.status == "Accepted"
+        Report.status == "Accepted",
+        Report.severity.in_(active_severity_list)  # ✅ FILTER!
     ).group_by(Report.severity).all()
     
     total_accepted = valid_reports or 1
