@@ -151,7 +151,6 @@ async def start_review(
         "status": report.status,
         "started_at": report.reviewed_at
     }
-
 # PUT /reviews/{id} - REVIEW REPORT (ACCEPT/REJECT)
 @router.put("/{report_id}", response_model=ReportResponse)
 async def review_report(
@@ -194,11 +193,15 @@ async def review_report(
                 detail="Severity is required when accepting a report"
             )
         
-        valid_severities = ["Critical", "High", "Medium", "Low", "Informational"]
-        if request.severity not in valid_severities:
+        active_severities = db.query(PointRule.severity).filter(
+            PointRule.is_active == True
+        ).all()
+        active_severity_list = [s[0] for s in active_severities]
+        
+        if request.severity not in active_severity_list:
             raise HTTPException(
                 status_code=400,
-                detail=f"Invalid severity. Must be one of: {', '.join(valid_severities)}"
+                detail=f"Invalid severity. Active severities are: {', '.join(active_severity_list)}"
             )
         
         report.status = "Accepted"
@@ -208,7 +211,10 @@ async def review_report(
         report.reviewed_at = datetime.now()
         report.accepted_at = datetime.now()  
         
-        point_rule = db.query(PointRule).filter(PointRule.severity == request.severity).first()
+        point_rule = db.query(PointRule).filter(
+            PointRule.severity == request.severity,
+            PointRule.is_active == True  
+        ).first()
         report.point = point_rule.point if point_rule else 0
         
         user = db.query(User).filter(User.id == report.user_id).first()
@@ -256,6 +262,7 @@ async def review_report(
             report_title=report.title,
             status=report.status  
         )
+    
     return ReportResponse(
         id=report.id,
         user_id=report.user_id,
