@@ -1,25 +1,26 @@
-# create_users.py
 import bcrypt
 from app.database import SessionLocal
 from app.models import User
 
-def create_user(email, password, full_name, role_id, researcher_type=None):
+def create_admin():
     """
-    Create a new user with specified role
-    
-    Role IDs:
-    - 1: Admin
-    - 2: Security Team
-    - 3: Bug Hunter
-    - 4: Super Admin
+    Create Admin user with secure credentials
     """
     db = SessionLocal()
     
+    email = "admin@super.com"
+    password = "B4Gbounty123!"
+    full_name = "Super Admin"
+    role_id = 1  # Admin
+    
     try:
-        # Cek apakah user sudah ada
+        # Cek apakah admin sudah ada
         existing_user = db.query(User).filter(User.email == email).first()
         if existing_user:
-            print(f"⚠️ User with email {email} already exists (ID: {existing_user.id})")
+            print(f"⚠️ Admin already exists!")
+            print(f"   ID: {existing_user.id}")
+            print(f"   Email: {existing_user.email}")
+            print(f"   Status: {existing_user.status}")
             db.close()
             return
         
@@ -29,82 +30,42 @@ def create_user(email, password, full_name, role_id, researcher_type=None):
         hashed = bcrypt.hashpw(password_bytes, salt)
         hashed_str = hashed.decode('utf-8')
         
-        # Buat user
-        user = User(
+        # Buat Admin
+        admin = User(
             role_id=role_id,
-            researcher_type=researcher_type,
+            researcher_type="Internal",
             full_name=full_name,
             email=email,
             password_hash=hashed_str,
             status="Active"
         )
         
-        db.add(user)
+        db.add(admin)
         db.commit()
-        db.refresh(user)
+        db.refresh(admin)
         
-        # Role name
-        role_names = {
-            1: "Admin",
-            2: "Security Team",
-            3: "Bug Hunter",
-            4: "Super Admin"
-        }
-        
-        print(f"✅ User created successfully!")
-        print(f"   ID: {user.id}")
-        print(f"   Email: {email}")
+        print("=" * 60)
+        print("✅ ADMIN CREATED SUCCESSFULLY!")
+        print("=" * 60)
+        print(f"   ID:          {admin.id}")
+        print(f"   Email:       {email}")
+        print(f"   Password:    {password}")
+        print(f"   Name:        {full_name}")
+        print(f"   Role:        Admin (role_id: {role_id})")
+        print(f"   Status:      Active")
+        print("=" * 60)
+        print()
+        print("🔑 LOGIN CREDENTIALS:")
+        print(f"   Email:    {email}")
         print(f"   Password: {password}")
-        print(f"   Name: {full_name}")
-        print(f"   Role: {role_names.get(role_id, 'Unknown')} (role_id: {role_id})")
-        if researcher_type:
-            print(f"   Researcher Type: {researcher_type}")
-        print(f"   Status: Active")
-        print("-" * 50)
+        print("=" * 60)
         
     except Exception as e:
-        print(f"❌ Failed to create user: {str(e)}")
+        print(f"❌ Failed to create admin: {str(e)}")
         db.rollback()
     finally:
         db.close()
 
 
-def create_bug_hunter():
-    """Create Bug Hunter (role_id: 3)"""
-    create_user(
-        email="robert@company.com",
-        password="password123",
-        full_name="Robert Bug Hunter",
-        role_id=3,
-        researcher_type="External"
-    )
-
-
-def create_security_team():
-    """Create Security Team (role_id: 2)"""
-    create_user(
-        email="security@company.com",
-        password="password123",
-        full_name="Security Team",
-        role_id=2
-    )
-
-
 if __name__ == "__main__":
-    print("=" * 60)
-    print("🚀 CREATING USERS FOR BUG BOUNTY SYSTEM")
-    print("=" * 60)
-    print()
-    
-    # Buat Bug Hunter
-    create_bug_hunter()
-    
-    # Buat Security Team
-    create_security_team()
-    
-    print("\n" + "=" * 60)
-    print("📋 SUMMARY")
-    print("=" * 60)
-    print("Bug Hunter:   robert@company.com / password123")
-    print("Security:     security@company.com / password123")
-    print("=" * 60)
+    create_admin()
