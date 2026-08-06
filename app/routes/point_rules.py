@@ -17,8 +17,7 @@ def get_db():
         db.close()
 
 
-
-# GET /point-rules - GET ALL POINT RULES
+# GET /point-rules - GET ALL POINT RULES (SEMUA USER)
 @router.get("")
 @router.get("/")
 async def get_point_rules(
@@ -26,16 +25,12 @@ async def get_point_rules(
     db: Session = Depends(get_db)
 ):
     """
-    Get all point rules (Admin & Security Team only).
+    Get all point rules (All authenticated users).
     """
 
-    role = db.query(Role).filter(Role.id == current_user.role_id).first()
-    
-    if role.name not in ["Admin", "Security Team"]:
-        raise HTTPException(
-            status_code=403,
-            detail="Access denied. Only Admin and Security Team can view point rules."
-        )
+    # role = db.query(Role).filter(Role.id == current_user.role_id).first()
+    # if role.name not in ["Admin", "Security Team"]:
+    #     raise HTTPException(...)
     
     point_rules = db.query(PointRule).order_by(PointRule.id).all()
     
