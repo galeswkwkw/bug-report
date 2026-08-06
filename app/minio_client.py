@@ -42,16 +42,16 @@ class MinioClient:
         except S3Error as e:
             raise Exception(f"MinIO upload failed: {str(e)}")
     
-    def get_presigned_url(self, object_name: str, expiry: int = 3600):
+    def get_presigned_url(self, object_name: str, expiry: int = 300):
         try:
-            # Generate presigned URL dari MinIO
+            
             url = self.client.presigned_get_object(
                 self.bucket,
                 object_name,
                 expires=timedelta(seconds=expiry)
             )
             
-            # Jika ada public_url, ganti endpoint-nya
+            
             if self.public_url:
                 parsed = urllib.parse.urlparse(url)
                 public_url = f"{self.public_url}{parsed.path}?{parsed.query}"
