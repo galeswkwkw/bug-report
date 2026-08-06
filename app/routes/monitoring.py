@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, extract
 from datetime import datetime, timedelta
 from app.database import SessionLocal
-from app.models import Report, User, Asset
+from app.models import Report, User, Asset, PointRule  
 from app.auth import get_current_active_user
 
 router = APIRouter(prefix="/monitoring", tags=["Monitoring"])
@@ -16,9 +16,9 @@ def get_db():
         db.close()
 
 
-# ============================================================
+
 # GET /monitoring - GET MONITORING DASHBOARD (ALL USERS)
-# ============================================================
+
 @router.get("")
 async def get_monitoring(
     current_user: User = Depends(get_current_active_user),
@@ -28,23 +28,21 @@ async def get_monitoring(
     Get monitoring dashboard data.
     Accessible by all authenticated users.
     """
-    # ============================================================
+    
     # 1. MONTHLY TREND (6 bulan terakhir)
-    # ============================================================
+    
     monthly_trend = []
     current_date = datetime.now()
     
-    for i in range(5, -1, -1):  # 6 bulan terakhir
+    for i in range(5, -1, -1):
         month_date = current_date - timedelta(days=30 * i)
         month_name = month_date.strftime("%B")
         
-        # Total reports bulan ini
         total_reports = db.query(Report).filter(
             extract('month', Report.created_at) == month_date.month,
             extract('year', Report.created_at) == month_date.year
         ).count()
         
-        # Valid reports (Accepted) bulan ini
         valid_reports = db.query(Report).filter(
             extract('month', Report.created_at) == month_date.month,
             extract('year', Report.created_at) == month_date.year,
@@ -57,9 +55,9 @@ async def get_monitoring(
             "valid_reports": valid_reports
         })
     
-    # ============================================================
+    
     # 2. SECURITY TEAM PERFORMANCE
-    # ============================================================
+    
     security_teams = db.query(User).filter(User.role_id == 2).all()
     
     security_team_performance = []
@@ -81,9 +79,9 @@ async def get_monitoring(
             "in_review_reports": in_review
         })
     
-    # ============================================================
+    
     # 3. TOP ASSETS (berdasarkan total reports)
-    # ============================================================
+    
     top_assets = db.query(
         Asset.id,
         Asset.name,
@@ -103,16 +101,20 @@ async def get_monitoring(
             "total_reports": asset.total_reports
         })
     
-    # ============================================================
-    # 4. SEVERITY DISTRIBUTION
-    # ============================================================
-    severity_distribution = {
-        "critical": 0,
-        "high": 0,
-        "medium": 0,
-        "low": 0,
-        "informational": 0
-    }
+    
+    # 4. SEVERITY DISTRIBUTION (HANYA YANG ACTIVE)
+    
+    
+    active_severities = db.query(PointRule.severity).filter(
+        PointRule.is_active == True
+    ).all()
+    active_severity_list = [s[0].lower() for s in active_severities]
+    
+    
+    severity_distribution = {}
+    for severity in active_severity_list:
+        severity_distribution[severity] = 0
+    
     
     severity_stats = db.query(
         Report.severity,
@@ -126,9 +128,9 @@ async def get_monitoring(
         if key in severity_distribution:
             severity_distribution[key] = stat.total
     
-    # ============================================================
+    
     # RESPONSE
-    # ============================================================
+    
     return {
         "success": True,
         "data": {
