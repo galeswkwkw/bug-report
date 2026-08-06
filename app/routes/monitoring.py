@@ -16,9 +16,7 @@ def get_db():
         db.close()
 
 
-
 # GET /monitoring - GET MONITORING DASHBOARD (ALL USERS)
-
 @router.get("")
 async def get_monitoring(
     current_user: User = Depends(get_current_active_user),
@@ -28,9 +26,7 @@ async def get_monitoring(
     Get monitoring dashboard data.
     Accessible by all authenticated users.
     """
-    
     # 1. MONTHLY TREND (6 bulan terakhir)
-    
     monthly_trend = []
     current_date = datetime.now()
     
@@ -55,9 +51,7 @@ async def get_monitoring(
             "valid_reports": valid_reports
         })
     
-    
     # 2. SECURITY TEAM PERFORMANCE
-    
     security_teams = db.query(User).filter(User.role_id == 2).all()
     
     security_team_performance = []
@@ -79,9 +73,7 @@ async def get_monitoring(
             "in_review_reports": in_review
         })
     
-    
     # 3. TOP ASSETS (berdasarkan total reports)
-    
     top_assets = db.query(
         Asset.id,
         Asset.name,
@@ -101,22 +93,16 @@ async def get_monitoring(
             "total_reports": asset.total_reports
         })
     
-    
-    # 4. SEVERITY DISTRIBUTION (HANYA YANG ACTIVE)
-    
-    
     # 4. SEVERITY DISTRIBUTION (HANYA YANG ACTIVE)
     active_severities = db.query(PointRule.severity).filter(
         PointRule.is_active == True
     ).all()
-    active_severity_list = [s[0] for s in active_severities]  # ✅ List severity aktif
+    active_severity_list = [s[0] for s in active_severities]
 
-    # Inisialisasi dictionary
     severity_distribution = {}
     for severity in active_severity_list:
         severity_distribution[severity.lower()] = 0
 
-    # ✅ HANYA AMBIL SEVERITY YANG AKTIF
     severity_stats = db.query(
         Report.severity,
         func.count(Report.id).label("total")
@@ -129,9 +115,6 @@ async def get_monitoring(
         key = stat.severity.lower()
         if key in severity_distribution:
             severity_distribution[key] = stat.total
-    
-    
-    # RESPONSE
     
     return {
         "success": True,
