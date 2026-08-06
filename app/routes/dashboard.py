@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
 from datetime import datetime, timedelta
 from app.database import SessionLocal
-from app.models import Report, User, Asset
+from app.models import Report, User, Asset, PointRule  
 from app.auth import get_current_active_user, get_current_security, get_current_admin
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
