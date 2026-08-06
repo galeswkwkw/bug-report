@@ -46,7 +46,7 @@ async def get_point_rules(
                 "id": rule.id,
                 "severity": rule.severity,
                 "point": rule.point,
-                "description": rule.description if hasattr(rule, 'description') else None
+                "description": rule.description if hasattr(rule, 'description') else None,
                 "is_active": rule.is_active
             }
             for rule in point_rules
@@ -102,7 +102,7 @@ async def update_point_rule(
             "id": point_rule.id,
             "severity": point_rule.severity,
             "point": point_rule.point,
-            "description": point_rule.description if hasattr(point_rule, 'description') else None
+            "description": point_rule.description if hasattr(point_rule, 'description') else None,
             "is_active": rule.is_active
         }
     }
