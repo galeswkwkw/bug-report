@@ -242,7 +242,7 @@ class ReportUpdateRequest(BaseModel):
 
 class ReviewRequest(BaseModel):
     result: str = Field(..., pattern="^(accepted|rejected)$")
-    severity: Optional[str] = Field(None, pattern="^(Critical|High|Medium|Low|Informational)$")
+    severity: Optional[str] = Field(None, pattern="^(Critical\+|Critical\-|Critical|High|Medium|Low)$")
     comment: Optional[str] = None
     reject_reason: Optional[str] = None
 
