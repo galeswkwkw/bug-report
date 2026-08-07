@@ -32,7 +32,7 @@ async def get_point_rules(
     # if role.name not in ["Admin", "Security Team"]:
     #     raise HTTPException(...)
     
-    point_rules = db.query(PointRule).order_by(PointRule.id).all()
+    point_rules = db.query(PointRule).order_by(PointRule.point.desc()).all()
     
     return {
         "success": True,
