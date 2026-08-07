@@ -98,7 +98,7 @@ async def update_point_rule(
             "severity": point_rule.severity,
             "point": point_rule.point,
             "description": point_rule.description if hasattr(point_rule, 'description') else None,
-            "is_active": rule.is_active
+            "is_active": point_rule.is_active 
         }
     }
 
