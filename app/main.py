@@ -1,3 +1,4 @@
+# app/main.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routes import auth, profile, admin, assets, reports, reviews, dashboard, leaderboard, monitoring, notifications, point_rules
@@ -9,7 +10,10 @@ Base.metadata.create_all(bind=engine)
 app = FastAPI(
     title="Bug Report Management System API",
     description="API for Bug Bounty Platform with MinIO storage",
-    version="1.0.0"
+    version="1.0.0",
+    docs_url=None,      
+    redoc_url=None,      
+    openapi_url=None     
 )
 
 app.add_middleware(
@@ -37,10 +41,10 @@ app.include_router(point_rules.router)
 async def root():
     return {
         "message": "Bug Report Management System API",
-        "docs": "/docs",
         "version": "1.0.0"
     }
 
-@app.get("/health")
-async def health_check():
-    return {"status": "healthy"}
+# 
+# @app.get("/health")
+# async def health_check():
+#     return {"status": "healthy"}

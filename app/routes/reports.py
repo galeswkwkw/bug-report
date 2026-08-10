@@ -616,152 +616,152 @@ async def get_report_by_id(
         can_edit=can_edit  
     )
 
-# PUT /reports/evidence/{id} - UPDATE EVIDENCE (ADMIN OR OWNER)
-@router.put("/evidence/{evidence_id}", response_model=ReportEvidenceResponse)
-async def update_evidence(
-    evidence_id: int,
-    file: UploadFile = File(...),
-    type: str = Form(...),  
-    current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Update evidence/result file by ID.
-    - Admin: can update any evidence
-    - Researcher: only their own evidence (report owner)
-    - ONLY allowed if report status is 'Submitted'
+# # PUT /reports/evidence/{id} - UPDATE EVIDENCE (ADMIN OR OWNER)
+# @router.put("/evidence/{evidence_id}", response_model=ReportEvidenceResponse)
+# async def update_evidence(
+#     evidence_id: int,
+#     file: UploadFile = File(...),
+#     type: str = Form(...),  
+#     current_user: User = Depends(get_current_active_user),
+#     db: Session = Depends(get_db)
+# ):
+#     """
+#     Update evidence/result file by ID.
+#     - Admin: can update any evidence
+#     - Researcher: only their own evidence (report owner)
+#     - ONLY allowed if report status is 'Submitted'
     
-    **type:** 'evidence' atau 'result' (wajib)
-    """
-    
-    
-    if type not in ["evidence", "result"]:
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid type. Must be 'evidence' or 'result'"
-        )
+#     **type:** 'evidence' atau 'result' (wajib)
+#     """
     
     
-    evidence = db.query(ReportEvidence).filter(ReportEvidence.id == evidence_id).first()
-    if not evidence:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Evidence with ID {evidence_id} not found"
-        )
+#     if type not in ["evidence", "result"]:
+#         raise HTTPException(
+#             status_code=400,
+#             detail="Invalid type. Must be 'evidence' or 'result'"
+#         )
     
     
-    report = db.query(Report).filter(Report.id == evidence.report_id).first()
-    if not report:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Report with ID {evidence.report_id} not found"
-        )
+#     evidence = db.query(ReportEvidence).filter(ReportEvidence.id == evidence_id).first()
+#     if not evidence:
+#         raise HTTPException(
+#             status_code=404,
+#             detail=f"Evidence with ID {evidence_id} not found"
+#         )
     
     
-    is_admin = current_user.role_id == 1
-    is_owner = report.user_id == current_user.id
-    
-    if not is_admin and not is_owner:
-        raise HTTPException(
-            status_code=403,
-            detail="You are not authorized to update this evidence"
-        )
+#     report = db.query(Report).filter(Report.id == evidence.report_id).first()
+#     if not report:
+#         raise HTTPException(
+#             status_code=404,
+#             detail=f"Report with ID {evidence.report_id} not found"
+#         )
     
     
-    if report.status != "Submitted":
-        raise HTTPException(
-            status_code=400,
-            detail=f"Cannot update evidence for report with status: {report.status}. Only Submitted reports can update evidence."
-        )
+#     is_admin = current_user.role_id == 1
+#     is_owner = report.user_id == current_user.id
+    
+#     if not is_admin and not is_owner:
+#         raise HTTPException(
+#             status_code=403,
+#             detail="You are not authorized to update this evidence"
+#         )
     
     
-    file_content = await file.read()
-    file_size = len(file_content)
-    
-    if file_size == 0:
-        raise HTTPException(status_code=400, detail="File is empty!")
-    
-    max_file_size = getattr(Config, 'MAX_FILE_SIZE', 250 * 1024 * 1024)
-    if file_size > max_file_size:
-        raise HTTPException(
-            status_code=400,
-            detail=f"File too large. Max size: {max_file_size / (1024*1024):.0f}MB. Your file: {file_size / (1024*1024):.2f}MB"
-        )
+#     if report.status != "Submitted":
+#         raise HTTPException(
+#             status_code=400,
+#             detail=f"Cannot update evidence for report with status: {report.status}. Only Submitted reports can update evidence."
+#         )
     
     
-    if type == "evidence":
-        allowed_extensions = getattr(Config, 'ALLOWED_EVIDENCE_EXTENSIONS', [".pdf", ".csv", ".jpg", ".png", ".mp4", ".tar.gz"])
-    else:
-        allowed_extensions = getattr(Config, 'ALLOWED_RESULT_EXTENSIONS', [".pdf", ".csv", ".jpg", ".png", ".mp4", ".tar.gz"])
+#     file_content = await file.read()
+#     file_size = len(file_content)
     
-    ext = os.path.splitext(file.filename)[1].lower()
-    if ext not in allowed_extensions:
-        raise HTTPException(
-            status_code=400,
-            detail=f"File format not allowed. Allowed: {', '.join(allowed_extensions)}"
-        )
+#     if file_size == 0:
+#         raise HTTPException(status_code=400, detail="File is empty!")
     
-    
-    try:
-        minio_client.client.remove_object(
-            evidence.bucket_name,
-            evidence.object_name
-        )
-        print(f"✅ Deleted old file from MinIO: {evidence.object_name}")
-    except Exception as e:
-        print(f"⚠️ Failed to delete old file: {str(e)}")
+#     max_file_size = getattr(Config, 'MAX_FILE_SIZE', 250 * 1024 * 1024)
+#     if file_size > max_file_size:
+#         raise HTTPException(
+#             status_code=400,
+#             detail=f"File too large. Max size: {max_file_size / (1024*1024):.0f}MB. Your file: {file_size / (1024*1024):.2f}MB"
+#         )
     
     
-    file_extension = os.path.splitext(file.filename)[1]
-    if type == "result":
-        object_name = f"report_results/{evidence.report_id}/{uuid.uuid4().hex[:8]}{file_extension}"
-    else:
-        object_name = f"report_evidences/{evidence.report_id}/{uuid.uuid4().hex[:8]}{file_extension}"
+#     if type == "evidence":
+#         allowed_extensions = getattr(Config, 'ALLOWED_EVIDENCE_EXTENSIONS', [".pdf", ".csv", ".jpg", ".png", ".mp4", ".tar.gz"])
+#     else:
+#         allowed_extensions = getattr(Config, 'ALLOWED_RESULT_EXTENSIONS', [".pdf", ".csv", ".jpg", ".png", ".mp4", ".tar.gz"])
+    
+#     ext = os.path.splitext(file.filename)[1].lower()
+#     if ext not in allowed_extensions:
+#         raise HTTPException(
+#             status_code=400,
+#             detail=f"File format not allowed. Allowed: {', '.join(allowed_extensions)}"
+#         )
     
     
-    try:
-        minio_client.upload_file(
-            object_name=object_name,
-            file_content=file_content,
-            content_type=file.content_type
-        )
+#     try:
+#         minio_client.client.remove_object(
+#             evidence.bucket_name,
+#             evidence.object_name
+#         )
+#         print(f"✅ Deleted old file from MinIO: {evidence.object_name}")
+#     except Exception as e:
+#         print(f"⚠️ Failed to delete old file: {str(e)}")
+    
+    
+#     file_extension = os.path.splitext(file.filename)[1]
+#     if type == "result":
+#         object_name = f"report_results/{evidence.report_id}/{uuid.uuid4().hex[:8]}{file_extension}"
+#     else:
+#         object_name = f"report_evidences/{evidence.report_id}/{uuid.uuid4().hex[:8]}{file_extension}"
+    
+    
+#     try:
+#         minio_client.upload_file(
+#             object_name=object_name,
+#             file_content=file_content,
+#             content_type=file.content_type
+#         )
         
         
-        evidence.file_name = file.filename
-        evidence.object_name = object_name
-        evidence.bucket_name = "uploads"
-        evidence.file_size = file_size
-        evidence.content_type = file.content_type or "application/octet-stream"
-        evidence.type = type  # 
+#         evidence.file_name = file.filename
+#         evidence.object_name = object_name
+#         evidence.bucket_name = "uploads"
+#         evidence.file_size = file_size
+#         evidence.content_type = file.content_type or "application/octet-stream"
+#         evidence.type = type  # 
         
-        db.commit()
-        db.refresh(evidence)
+#         db.commit()
+#         db.refresh(evidence)
         
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to update evidence: {str(e)}"
-        )
+#     except Exception as e:
+#         db.rollback()
+#         raise HTTPException(
+#             status_code=500,
+#             detail=f"Failed to update evidence: {str(e)}"
+#         )
     
     
-    presigned_url = minio_client.get_presigned_url(
-        object_name=object_name,
-        expiry=300
-    )
+#     presigned_url = minio_client.get_presigned_url(
+#         object_name=object_name,
+#         expiry=300
+#     )
     
-    return ReportEvidenceResponse(
-        id=evidence.id,
-        report_id=evidence.report_id,
-        file_name=evidence.file_name,
-        object_name=evidence.object_name,
-        bucket_name=evidence.bucket_name,
-        file_size=evidence.file_size,
-        content_type=evidence.content_type,
-        type=evidence.type,  
-        created_at=evidence.created_at,
-        url=presigned_url
-    )
+#     return ReportEvidenceResponse(
+#         id=evidence.id,
+#         report_id=evidence.report_id,
+#         file_name=evidence.file_name,
+#         object_name=evidence.object_name,
+#         bucket_name=evidence.bucket_name,
+#         file_size=evidence.file_size,
+#         content_type=evidence.content_type,
+#         type=evidence.type,  
+#         created_at=evidence.created_at,
+#         url=presigned_url
+#     )
 
 # PUT /reports/{id} - EDIT REPORT BY RESEARCHER (HANYA JIKA SUBMITTED)
 @router.put("/{report_id}")
@@ -907,48 +907,48 @@ async def update_report(
         user_name=user.full_name if user else None
     )
 
-# DELETE /reports/{id} - DELETE REPORT (ADMIN ONLY)
-@router.delete("/{report_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_report(
-    report_id: int,
-    current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Delete report by ID (Admin only).
-    Also deletes all evidence files from MinIO.
-    """
-    report = db.query(Report).filter(Report.id == report_id).first()
-    if not report:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Report with ID {report_id} not found"
-        )
+# # DELETE /reports/{id} - DELETE REPORT (ADMIN ONLY)
+# @router.delete("/{report_id}", status_code=status.HTTP_204_NO_CONTENT)
+# async def delete_report(
+#     report_id: int,
+#     current_user: User = Depends(get_current_active_user),
+#     db: Session = Depends(get_db)
+# ):
+#     """
+#     Delete report by ID (Admin only).
+#     Also deletes all evidence files from MinIO.
+#     """
+#     report = db.query(Report).filter(Report.id == report_id).first()
+#     if not report:
+#         raise HTTPException(
+#             status_code=404,
+#             detail=f"Report with ID {report_id} not found"
+#         )
     
-    evidences = db.query(ReportEvidence).filter(ReportEvidence.report_id == report_id).all()
+#     evidences = db.query(ReportEvidence).filter(ReportEvidence.report_id == report_id).all()
     
-    for evidence in evidences:
-        try:
-            minio_client.client.remove_object(
-                evidence.bucket_name,
-                evidence.object_name
-            )
-            print(f"✅ Deleted from MinIO: {evidence.object_name}")
-        except Exception as e:
-            print(f"⚠️ Failed to delete {evidence.object_name}: {str(e)}")
+#     for evidence in evidences:
+#         try:
+#             minio_client.client.remove_object(
+#                 evidence.bucket_name,
+#                 evidence.object_name
+#             )
+#             print(f"✅ Deleted from MinIO: {evidence.object_name}")
+#         except Exception as e:
+#             print(f"⚠️ Failed to delete {evidence.object_name}: {str(e)}")
     
-    db.delete(report)
+#     db.delete(report)
     
-    try:
-        db.commit()
-    except IntegrityError as e:
-        db.rollback()
-        raise HTTPException(
-            status_code=400,
-            detail=f"Failed to delete report: {str(e)}"
-        )
+#     try:
+#         db.commit()
+#     except IntegrityError as e:
+#         db.rollback()
+#         raise HTTPException(
+#             status_code=400,
+#             detail=f"Failed to delete report: {str(e)}"
+#         )
     
-    return None  # 204 No Content
+#     return None  # 204 No Content
     
 # DELETE /reports/evidence/{id} - DELETE EVIDENCE
 @router.delete("/evidence/{evidence_id}", status_code=status.HTTP_204_NO_CONTENT)
