@@ -1175,7 +1175,7 @@ async def create_report(
         created_at=new_report.created_at,
         updated_at=new_report.updated_at,
         asset_name=asset.name,
-        user_name=current_user.full_name
+        user_name=current_user.full_name,
         can_edit=True
     )
 
