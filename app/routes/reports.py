@@ -950,75 +950,75 @@ async def update_report(
     
 #     return None  # 204 No Content
     
-# # DELETE /reports/evidence/{id} - DELETE EVIDENCE
-# @router.delete("/evidence/{evidence_id}", status_code=status.HTTP_204_NO_CONTENT)
-# async def delete_evidence(
-#     evidence_id: int,
-#     current_user: User = Depends(get_current_active_user),
-#     db: Session = Depends(get_db)
-# ):
-#     """
-#     Delete evidence by ID.
-#     - Admin: can delete any evidence regardless of report status
-#     - Researcher: only their own evidence, and only if report status is 'Submitted'
-#     Also deletes the file from MinIO.
-#     """
+# DELETE /reports/evidence/{id} - DELETE EVIDENCE
+@router.delete("/evidence/{evidence_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_evidence(
+    evidence_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Delete evidence by ID.
+    - Admin: can delete any evidence regardless of report status
+    - Researcher: only their own evidence, and only if report status is 'Submitted'
+    Also deletes the file from MinIO.
+    """
     
-#     evidence = db.query(ReportEvidence).filter(ReportEvidence.id == evidence_id).first()
-#     if not evidence:
-#         raise HTTPException(
-#             status_code=404,
-#             detail=f"Evidence with ID {evidence_id} not found"
-#         )
-    
-    
-#     report = db.query(Report).filter(Report.id == evidence.report_id).first()
-#     if not report:
-#         raise HTTPException(
-#             status_code=404,
-#             detail=f"Report with ID {evidence.report_id} not found"
-#         )
+    evidence = db.query(ReportEvidence).filter(ReportEvidence.id == evidence_id).first()
+    if not evidence:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Evidence with ID {evidence_id} not found"
+        )
     
     
-#     is_admin = current_user.role_id == 1
-#     is_owner = report.user_id == current_user.id
-    
-#     if not is_admin and not is_owner:
-#         raise HTTPException(
-#             status_code=403,
-#             detail="You are not authorized to delete this evidence"
-#         )
+    report = db.query(Report).filter(Report.id == evidence.report_id).first()
+    if not report:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Report with ID {evidence.report_id} not found"
+        )
     
     
-#     if not is_admin and report.status != "Submitted":
-#         raise HTTPException(
-#             status_code=400,
-#             detail=f"Cannot delete evidence for report with status: {report.status}. Only Submitted reports can delete evidence."
-#         )
+    is_admin = current_user.role_id == 1
+    is_owner = report.user_id == current_user.id
+    
+    if not is_admin and not is_owner:
+        raise HTTPException(
+            status_code=403,
+            detail="You are not authorized to delete this evidence"
+        )
     
     
-#     try:
-#         minio_client.client.remove_object(
-#             evidence.bucket_name,
-#             evidence.object_name
-#         )
-#         print(f"✅ Deleted from MinIO: {evidence.object_name}")
-#     except Exception as e:
-#         print(f"⚠️ Failed to delete file from MinIO: {str(e)}")
+    if not is_admin and report.status != "Submitted":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot delete evidence for report with status: {report.status}. Only Submitted reports can delete evidence."
+        )
     
     
-#     db.delete(evidence)
+    try:
+        minio_client.client.remove_object(
+            evidence.bucket_name,
+            evidence.object_name
+        )
+        print(f"✅ Deleted from MinIO: {evidence.object_name}")
+    except Exception as e:
+        print(f"⚠️ Failed to delete file from MinIO: {str(e)}")
     
-#     try:
-#         db.commit()
-#     except IntegrityError as e:
-#         db.rollback()
-#         raise HTTPException(
-#             status_code=400,
-#             detail=f"Failed to delete evidence: {str(e)}"
-#         )
     
-#     return None  # 204 No Content
+    db.delete(evidence)
+    
+    try:
+        db.commit()
+    except IntegrityError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=400,
+            detail=f"Failed to delete evidence: {str(e)}"
+        )
+    
+    return None  # 204 No Content
 
 # GET /reports/{id}/evidences - GET ALL EVIDENCES (WITH FILTER TYPE)
 @router.get("/{report_id}/evidences", response_model=dict)
