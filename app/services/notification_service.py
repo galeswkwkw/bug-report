@@ -19,28 +19,35 @@ class NotificationService:
         return notification
     
     @staticmethod
-    def create_registration_notification(db: Session, admin_id: int, user_name: str):
-        """Notifikasi registrasi user baru ke Admin"""
-        return NotificationService.create_notification(
-            db=db,
-            user_id=admin_id,
-            title="New Registration",
-            message=f"User {user_name} has registered and requires approval.",
-            type="registration",
-            reference_id=None
-        )
+    def create_registration_notification(db: Session, user_name: str):
+        """Notifikasi registrasi user baru ke SEMUA Admin"""
+        admins = db.query(User).filter(User.role_id == 1).all()
+        
+        for admin in admins:
+            NotificationService.create_notification(
+                db=db,
+                user_id=admin.id,
+                title="New Registration",
+                message=f"User {user_name} has registered and requires approval.",
+                type="registration",
+                reference_id=None
+            )
     
     @staticmethod
-    def create_report_notification(db: Session, admin_id: int, report_id: int, report_title: str):
-        """Notifikasi report baru ke Admin"""
-        return NotificationService.create_notification(
-            db=db,
-            user_id=admin_id,
-            title="New Report Submitted",
-            message=f"New report '{report_title}' has been submitted for review.",
-            type="report",
-            reference_id=report_id
-        )
+    def create_report_notification(db: Session, report_id: int, report_title: str):
+        """Notifikasi report baru ke SEMUA Admin"""
+        
+        admins = db.query(User).filter(User.role_id == 1).all()
+        
+        for admin in admins:
+            NotificationService.create_notification(
+                db=db,
+                user_id=admin.id,
+                title="New Report Submitted",
+                message=f"New report '{report_title}' has been submitted for review.",
+                type="report",
+                reference_id=report_id
+            )
     
     @staticmethod
     def create_assignment_notification(db: Session, security_id: int, report_id: int, report_title: str):
@@ -55,9 +62,9 @@ class NotificationService:
         )
     
     @staticmethod
-    def create_review_started_notification(db: Session, researcher_id: int, admin_id: int, report_id: int, report_title: str):
-        """Notifikasi review dimulai ke Researcher dan Admin"""
-        # Notifikasi ke Researcher
+    def create_review_started_notification(db: Session, researcher_id: int, report_id: int, report_title: str):
+        """Notifikasi review dimulai ke Researcher dan SEMUA Admin"""
+        
         NotificationService.create_notification(
             db=db,
             user_id=researcher_id,
@@ -66,21 +73,23 @@ class NotificationService:
             type="review_started",
             reference_id=report_id
         )
-        # Notifikasi ke Admin
-        NotificationService.create_notification(
-            db=db,
-            user_id=admin_id,
-            title="Report Under Review",
-            message=f"Report '{report_title}' is now being reviewed.",
-            type="review_started",
-            reference_id=report_id
-        )
+        
+        admins = db.query(User).filter(User.role_id == 1).all()
+        for admin in admins:
+            NotificationService.create_notification(
+                db=db,
+                user_id=admin.id,
+                title="Report Under Review",
+                message=f"Report '{report_title}' is now being reviewed.",
+                type="review_started",
+                reference_id=report_id
+            )
     
     @staticmethod
-    def create_review_completed_notification(db: Session, researcher_id: int, admin_id: int, report_id: int, report_title: str, status: str):
-        """Notifikasi review selesai ke Researcher dan Admin"""
+    def create_review_completed_notification(db: Session, researcher_id: int, report_id: int, report_title: str, status: str):
+        """Notifikasi review selesai ke Researcher dan SEMUA Admin"""
         status_text = "accepted" if status == "Accepted" else "rejected"
-        # Notifikasi ke Researcher
+        
         NotificationService.create_notification(
             db=db,
             user_id=researcher_id,
@@ -89,12 +98,14 @@ class NotificationService:
             type="review_completed",
             reference_id=report_id
         )
-        # Notifikasi ke Admin
-        NotificationService.create_notification(
-            db=db,
-            user_id=admin_id,
-            title=f"Report {status_text}",
-            message=f"Report '{report_title}' has been {status_text} by Security Team.",
-            type="review_completed",
-            reference_id=report_id
-        )
+        
+        admins = db.query(User).filter(User.role_id == 1).all()
+        for admin in admins:
+            NotificationService.create_notification(
+                db=db,
+                user_id=admin.id,
+                title=f"Report {status_text}",
+                message=f"Report '{report_title}' has been {status_text} by Security Team.",
+                type="review_completed",
+                reference_id=report_id
+            )
