@@ -507,17 +507,30 @@ async def update_user_status(
     db: Session = Depends(get_db)
 ):
     """
-    Update user status by ID (Admin only).
+    Update user status by ID (Admin only OR self).
     Status options: active, inactive
     """
     
-    is_admin = db.query(Role).filter(Role.id == current_user.role_id, Role.name == "Admin").first()
     
+    target_user = db.query(User).filter(User.id == user_id).first()
+    if not target_user:
+        raise HTTPException(
+            status_code=404,
+            detail=f"User with ID {user_id} not found"
+        )
+    
+    
+    is_admin = db.query(Role).filter(
+        Role.id == current_user.role_id, 
+        Role.name == "Admin"
+    ).first()
+
     if not is_admin and current_user.id != user_id:
         raise HTTPException(
             status_code=403,
-            detail="You can only update your own status"
+            detail="You are not allowed to update this user's status"
         )
+    
     
     status = request.get("status")
     if not status:
@@ -532,25 +545,26 @@ async def update_user_status(
             detail="Invalid status. Must be 'active' or 'inactive'"
         )
     
-    if status == "active":
-        user.status = "Active"
-    elif status == "inactive":
-        user.status = "Inactive"
     
-    user.updated_at = datetime.now()
+    if status == "active":
+        target_user.status = "Active"
+    elif status == "inactive":
+        target_user.status = "Inactive"
+    
+    target_user.updated_at = datetime.now()
     
     db.commit()
-    db.refresh(user)
+    db.refresh(target_user)
     
     return {
         "success": True,
-        "message": f"User {user.full_name} status updated to {status}",
+        "message": f"User {target_user.full_name} status updated to {status}",
         "data": {
-            "id": user.id,
-            "full_name": user.full_name,
-            "email": user.email,
-            "status": user.status,
-            "updated_at": user.updated_at
+            "id": target_user.id,
+            "full_name": target_user.full_name,
+            "email": target_user.email,
+            "status": target_user.status,
+            "updated_at": target_user.updated_at
         }
     }
 
