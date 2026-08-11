@@ -7,8 +7,8 @@ class Notification(Base):
     __tablename__ = "notifications"
     
     id = Column(BigInteger, primary_key=True)
-    user_id = Column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    role_id = Column(Integer)
+    user_id = Column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=True) 
+    role_id = Column(Integer, nullable=True)
     title = Column(String(255), nullable=False)
     message = Column(Text, nullable=False)
     type = Column(String(50), nullable=False)  
