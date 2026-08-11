@@ -8,6 +8,7 @@ class NotificationService:
         """Buat notifikasi untuk 1 user"""
         notification = Notification(
             user_id=user_id,
+            role_id=role_id,
             title=title,
             message=message,
             type=type,
@@ -26,6 +27,7 @@ class NotificationService:
             NotificationService.create_notification(
                 db=db,
                 user_id=admin.id,
+                role_id=1,
                 title=title,
                 message=message,
                 type=type,
