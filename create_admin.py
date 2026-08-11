@@ -8,10 +8,10 @@ def create_admin():
     """
     db = SessionLocal()
     
-    email = "kristiawan7612@gmail.com"
-    password = "password123"
+    email = "dandy.work20@gmail.com"
+    password = "fUh&1?Da"
     full_name = "Admin"
-    role_id = 2  # Admin
+    role_id = 1  # Admin
     
     try:
         # Cek apakah admin sudah ada
