@@ -30,7 +30,10 @@ async def get_notifications(
     Get notifications for current user with pagination.
     """
     
-    query = db.query(Notification).filter(Notification.user_id == current_user.id)
+    query = db.query(Notification).filter(
+        (Notification.user_id == current_user.id) |  # notifikasi personal
+        (Notification.role_id == current_user.role_id)  # notifikasi berdasarkan role
+    )
     
     if is_read is not None:
         query = query.filter(Notification.is_read == is_read)

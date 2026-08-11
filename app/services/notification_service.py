@@ -4,10 +4,11 @@ from app.models import Notification, User, Report
 class NotificationService:
     
     @staticmethod
-    def create_notification(db: Session, user_id: int, title: str, message: str, type: str, reference_id: int = None):
-        """Buat notifikasi untuk 1 user"""
+    def notify_by_role(db: Session, role_id: int, title: str, message: str, type: str, reference_id: int = None):
+        """Kirim notifikasi ke semua user dengan role tertentu"""
         notification = Notification(
-            user_id=user_id,
+            user_id=None,  # ✅ NULL karena notifikasi untuk ROLE
+            role_id=role_id,
             title=title,
             message=message,
             type=type,
