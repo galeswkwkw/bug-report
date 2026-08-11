@@ -11,7 +11,7 @@ def create_admin():
     email = "kristiawan7612@gmail.com"
     password = "password123"
     full_name = "Admin"
-    role_id = 1  # Admin
+    role_id = 2  # Admin
     
     try:
         # Cek apakah admin sudah ada
