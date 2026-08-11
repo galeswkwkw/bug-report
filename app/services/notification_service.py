@@ -4,11 +4,11 @@ from app.models import Notification, User, Report
 class NotificationService:
     
     @staticmethod
-    def create_notification(db: Session, user_id: int, title: str, message: str, type: str, reference_id: int = None):
-        """Buat notifikasi untuk 1 user"""
+    def create_notification(db: Session, user_id: int, title: str, message: str, type: str, reference_id: int = None, role_id: int = None):
+        """Buat notifikasi untuk 1 user (bisa dengan role_id opsional)"""
         notification = Notification(
             user_id=user_id,
-            role_id=role_id,
+            role_id=role_id, 
             title=title,
             message=message,
             type=type,
