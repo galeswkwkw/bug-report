@@ -137,12 +137,12 @@ async def start_review(
     
     admin = db.query(User).filter(User.role_id == 1).first()
     if admin:
-        NotificationService.create_review_started_notification(
+        NotificationService.notify_all_admins(
             db=db,
-            researcher_id=report.user_id,
-            admin_id=admin.id,
-            report_id=report.id,
-            report_title=report.title
+            title=f"Report Report Started Review",
+            message=f"Report '{report.title}' has started review process.",
+            type="review_started",
+            reference_id=report.id
         )
     
     return {
@@ -254,14 +254,17 @@ async def review_report(
     user = db.query(User).filter(User.id == report.user_id).first()
     
     admin = db.query(User).filter(User.role_id == 1).first()
+   
+    status_text = "accepted" if report.status == "Accepted" else "rejected"
+
+    admin = db.query(User).filter(User.role_id == 1).first()
     if admin:
-        NotificationService.create_review_completed_notification(
+        NotificationService.notify_all_admins(
             db=db,
-            researcher_id=report.user_id,
-            admin_id=admin.id,
-            report_id=report.id,
-            report_title=report.title,
-            status=report.status  
+            title=f"Report {status_text}",
+            message=f"Report '{report.title}' has been {status_text} by Security Team.",
+            type="review_completed",
+            reference_id=report.id
         )
     
     return ReportResponse(

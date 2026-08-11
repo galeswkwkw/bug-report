@@ -4,11 +4,10 @@ from app.models import Notification, User, Report
 class NotificationService:
     
     @staticmethod
-    def notify_by_role(db: Session, role_id: int, title: str, message: str, type: str, reference_id: int = None):
-        """Kirim notifikasi ke semua user dengan role tertentu"""
+    def create_notification(db: Session, user_id: int, title: str, message: str, type: str, reference_id: int = None):
+        """Buat notifikasi untuk 1 user"""
         notification = Notification(
-            user_id=None,  # ✅ NULL karena notifikasi untuk ROLE
-            role_id=role_id,
+            user_id=user_id,
             title=title,
             message=message,
             type=type,
@@ -19,7 +18,6 @@ class NotificationService:
         db.refresh(notification)
         return notification
 
-    # ✅ KIRIM KE SEMUA ADMIN
     @staticmethod
     def notify_all_admins(db: Session, title: str, message: str, type: str, reference_id: int = None):
         """Kirim notifikasi ke semua user dengan role_id = 1 (Admin)"""
@@ -36,7 +34,6 @@ class NotificationService:
 
     @staticmethod
     def create_registration_notification(db: Session, user_name: str):
-        """Notifikasi registrasi user baru ke SEMUA Admin"""
         NotificationService.notify_all_admins(
             db=db,
             title="New Registration",
@@ -46,7 +43,6 @@ class NotificationService:
 
     @staticmethod
     def create_report_notification(db: Session, report_id: int, report_title: str):
-        """Notifikasi report baru ke SEMUA Admin"""
         NotificationService.notify_all_admins(
             db=db,
             title="New Report Submitted",
@@ -57,7 +53,6 @@ class NotificationService:
 
     @staticmethod
     def create_assignment_notification(db: Session, security_id: int, report_id: int, report_title: str):
-        """Notifikasi assign report ke Security Team"""
         return NotificationService.create_notification(
             db=db,
             user_id=security_id,
@@ -69,7 +64,6 @@ class NotificationService:
 
     @staticmethod
     def create_review_started_notification(db: Session, researcher_id: int, report_id: int, report_title: str):
-        """Notifikasi review dimulai ke Researcher dan SEMUA Admin"""
         NotificationService.create_notification(
             db=db,
             user_id=researcher_id,
@@ -88,7 +82,6 @@ class NotificationService:
 
     @staticmethod
     def create_review_completed_notification(db: Session, researcher_id: int, report_id: int, report_title: str, status: str):
-        """Notifikasi review selesai ke Researcher dan SEMUA Admin"""
         status_text = "accepted" if status == "Accepted" else "rejected"
         NotificationService.create_notification(
             db=db,

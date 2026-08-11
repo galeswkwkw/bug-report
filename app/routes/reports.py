@@ -1146,11 +1146,12 @@ async def create_report(
     
     admin = db.query(User).filter(User.role_id == 1).first()
     if admin:
-        NotificationService.create_report_notification(
+        NotificationService.notify_all_admins(
             db=db,
-            admin_id=admin.id,
-            report_id=new_report.id,
-            report_title=new_report.title
+            title="New Report Submitted",
+            message=f"New report '{new_report.title}' has been submitted for review.",
+            type="report",
+            reference_id=new_report.id
         )
     
     
