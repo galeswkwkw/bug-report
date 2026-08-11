@@ -4,11 +4,11 @@ from app.models import Notification, User, Report
 class NotificationService:
     
     @staticmethod
-    def create_notification(db: Session, user_id: int, title: str, message: str, type: str, reference_id: int = None, role_id: int = None):
-        """Buat notifikasi untuk 1 user (bisa dengan role_id opsional)"""
+    def create_notification(db: Session, user_id: int = None, role_id: int = None, title: str = "", message: str = "", type: str = "", reference_id: int = None):
+        """Buat notifikasi untuk 1 user ATAU 1 role"""
         notification = Notification(
             user_id=user_id,
-            role_id=role_id, 
+            role_id=role_id,
             title=title,
             message=message,
             type=type,
@@ -20,19 +20,29 @@ class NotificationService:
         return notification
 
     @staticmethod
+    def notify_by_role(db: Session, role_id: int, title: str, message: str, type: str, reference_id: int = None):
+        """Kirim 1 notifikasi untuk semua user dengan role tertentu"""
+        return NotificationService.create_notification(
+            db=db,
+            user_id=None,
+            role_id=role_id,
+            title=title,
+            message=message,
+            type=type,
+            reference_id=reference_id
+        )
+
+    @staticmethod
     def notify_all_admins(db: Session, title: str, message: str, type: str, reference_id: int = None):
-        """Kirim notifikasi ke semua user dengan role_id = 1 (Admin)"""
-        admins = db.query(User).filter(User.role_id == 1).all()
-        for admin in admins:
-            NotificationService.create_notification(
-                db=db,
-                user_id=admin.id,
-                role_id=1,
-                title=title,
-                message=message,
-                type=type,
-                reference_id=reference_id
-            )
+        """Kirim 1 notifikasi untuk semua admin (role_id=1)"""
+        return NotificationService.notify_by_role(
+            db=db,
+            role_id=1,
+            title=title,
+            message=message,
+            type=type,
+            reference_id=reference_id
+        )
 
     @staticmethod
     def create_registration_notification(db: Session, user_name: str):
