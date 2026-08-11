@@ -297,7 +297,7 @@ async def admin_reset_password(
         try:
             reset_token = PasswordResetService.create_reset_token(db, user.id)
             
-            frontend_url = "https://bugbounty.sprintasia.net/reset-password"
+            frontend_url = "https://fountguard.com/reset-password"
             EmailService.send_reset_password_email(
                 to_email=user.email,
                 reset_token=reset_token.token,
