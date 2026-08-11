@@ -14,7 +14,7 @@ class EmailService:
     
     @staticmethod
     def send_reset_password_email(to_email: str, reset_token: str, frontend_url: str = None):
-        """Send password reset email"""
+        """Send password reset emaill"""
         if not frontend_url:
             frontend_url = "https://fountguard.com/reset-password"
         
