@@ -75,10 +75,12 @@ async def get_unread_count(
     Get count of unread notifications.
     """
     count = db.query(Notification).filter(
-        Notification.user_id == current_user.id,
+        (
+            (Notification.user_id == current_user.id) |
+            (Notification.role_id == current_user.role_id)
+        ),
         Notification.is_read == False
     ).count()
-    
     return {"count": count}
 
 
@@ -110,7 +112,6 @@ async def mark_notification_read(
 
 
 # PUT /notifications/read-all - MARK ALL AS READ
-
 @router.put("/read-all")
 async def mark_all_read(
     current_user: User = Depends(get_current_active_user),
@@ -120,7 +121,10 @@ async def mark_all_read(
     Mark all notifications as read.
     """
     db.query(Notification).filter(
-        Notification.user_id == current_user.id,
+        (
+            (Notification.user_id == current_user.id) |
+            (Notification.role_id == current_user.role_id)
+        ),
         Notification.is_read == False
     ).update({"is_read": True})
     
