@@ -83,10 +83,7 @@ async def get_unread_count(
     ).count()
     return {"count": count}
 
-
-
 # PUT /notifications/{id}/read - MARK AS READ
-
 @router.put("/{notification_id}/read")
 async def mark_notification_read(
     notification_id: int,
@@ -98,7 +95,10 @@ async def mark_notification_read(
     """
     notification = db.query(Notification).filter(
         Notification.id == notification_id,
-        Notification.user_id == current_user.id
+        (
+            (Notification.user_id == current_user.id) |  
+            (Notification.role_id == current_user.role_id)  
+        )
     ).first()
     
     if not notification:
