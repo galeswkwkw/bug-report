@@ -284,7 +284,6 @@ async def register(
         from app.services.notification_service import NotificationService
         NotificationService.create_registration_notification(
             db=db,
-            admin_id=admin.id,
             user_name=new_user.full_name
         )
     
