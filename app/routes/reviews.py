@@ -135,11 +135,22 @@ async def start_review(
     db.commit()
     db.refresh(report)
     
+    
+    NotificationService.create_notification(
+        db=db,
+        user_id=report.user_id,  
+        title="Report Under Review",
+        message=f"Your report '{report.title}' is now being reviewed by Security Team.",
+        type="review_started",
+        reference_id=report.id
+    )
+    
+    
     admin = db.query(User).filter(User.role_id == 1).first()
     if admin:
         NotificationService.notify_all_admins(
             db=db,
-            title=f"Report Report Started Review",
+            title="Report Started Review",
             message=f"Report '{report.title}' has started review process.",
             type="review_started",
             reference_id=report.id
@@ -152,7 +163,7 @@ async def start_review(
         "status": report.status,
         "started_at": report.reviewed_at
     }
-# PUT /reviews/{id} - REVIEW REPORT (ACCEPT/REJECT)
+  # PUT /reviews/{id} - REVIEW REPORT (ACCEPT/REJECT)
 @router.put("/{report_id}", response_model=ReportResponse)
 async def review_report(
     report_id: int,
@@ -210,11 +221,11 @@ async def review_report(
         report.review_comment = request.comment
         report.reviewer_id = current_user.id
         report.reviewed_at = datetime.now()
-        report.accepted_at = datetime.now()  
+        report.accepted_at = datetime.now()
         
         point_rule = db.query(PointRule).filter(
             PointRule.severity == request.severity,
-            PointRule.is_active == True  
+            PointRule.is_active == True
         ).first()
         report.point = point_rule.point if point_rule else 0
         
@@ -235,7 +246,7 @@ async def review_report(
         report.review_comment = request.comment
         report.reviewer_id = current_user.id
         report.reviewed_at = datetime.now()
-        report.rejected_at = datetime.now()  
+        report.rejected_at = datetime.now()
         report.point = 0
     
     report.updated_at = datetime.now()
@@ -253,10 +264,21 @@ async def review_report(
     asset = db.query(Asset).filter(Asset.id == report.asset_id).first()
     user = db.query(User).filter(User.id == report.user_id).first()
     
-    admin = db.query(User).filter(User.role_id == 1).first()
-   
     status_text = "accepted" if report.status == "Accepted" else "rejected"
-
+    
+   
+    NotificationService.create_notification(
+        db=db,
+        user_id=report.user_id, 
+        title=f"Report {status_text}",
+        message=f"Your report '{report.title}' has been {status_text}." + (
+            f" Points earned: {report.point}" if report.status == "Accepted" else ""
+        ),
+        type="review_completed",
+        reference_id=report.id
+    )
+    
+   
     admin = db.query(User).filter(User.role_id == 1).first()
     if admin:
         NotificationService.notify_all_admins(
@@ -285,14 +307,13 @@ async def review_report(
         review_comment=report.review_comment,
         reject_reason=report.reject_reason,
         reviewed_at=report.reviewed_at,
-        accepted_at=report.accepted_at,  
-        rejected_at=report.rejected_at,  
+        accepted_at=report.accepted_at,
+        rejected_at=report.rejected_at,
         created_at=report.created_at,
         updated_at=report.updated_at,
         asset_name=asset.name if asset else None,
         user_name=user.full_name if user else None
     )
-
 # GET /reports/{id} - GET ASSIGNED REPORT DETAIL (ADMIN & SECURITY)
 @router.get("/{report_id}")
 async def get_assigned_report_detail(
