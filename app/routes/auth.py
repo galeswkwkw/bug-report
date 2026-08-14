@@ -56,7 +56,7 @@ async def forgot_password(
     try:
         reset_token = PasswordResetService.create_reset_token(db, user.id)
         
-        frontend_url = "https://stag.fountguard.com/reset-password"
+        frontend_url = "https://fountguard.com/reset-password"
         EmailService.send_reset_password_email(
             to_email=user.email,
             reset_token=reset_token.token,
@@ -74,6 +74,7 @@ async def forgot_password(
             status_code=500,
             detail="Failed to send reset email. Please try again later."
         )
+
 @router.post("/change-password")
 async def change_password(
     request: dict,
@@ -99,12 +100,10 @@ async def change_password(
     
     from app.auth import verify_password
     
-    # ✅ Ambil ulang user dari database (refresh)
     user = db.query(User).filter(User.id == current_user.id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    # ✅ Verifikasi password dengan user yang fresh
     if not verify_password(current_password, user.password_hash):
         raise HTTPException(status_code=400, detail="Current password is incorrect")
     
@@ -116,7 +115,6 @@ async def change_password(
     
     from app.auth import hash_password
     
-    # ✅ Update user yang fresh dari database
     user.password_hash = hash_password(new_password)
     user.must_change_password = False
     
@@ -130,7 +128,6 @@ async def change_password(
         logger.error(f"❌ db.commit() ERROR: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
     
-    # ✅ Verifikasi setelah commit
     db.refresh(user)
     logger.info(f"🔍 AFTER COMMIT: user_id={user.id}, must_change_password={user.must_change_password}")
     
@@ -158,7 +155,6 @@ async def validate_reset_token(
 
 
 # POST /auth/reset-password
-
 @router.post("/reset-password", response_model=ResetPasswordResponse)
 async def reset_password(
     request: ResetPasswordRequest,
