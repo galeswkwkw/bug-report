@@ -24,7 +24,8 @@ from app.schemas.schemas import (
     ForgotPasswordRequest,  
     ValidateResetTokenResponse,  
     ResetPasswordRequest,  
-    ResetPasswordResponse 
+    ResetPasswordResponse,
+    ReportFeedbackRequest 
 )
 
 __all__ = [
@@ -53,5 +54,6 @@ __all__ = [
      "ForgotPasswordRequest",
     "ValidateResetTokenResponse",
     "ResetPasswordRequest",
-    "ResetPasswordResponse"
+    "ResetPasswordResponse",
+    "ReportFeedbackRequest"
 ]
