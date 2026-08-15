@@ -399,6 +399,6 @@ async def get_assigned_report_detail(
         "reviewed_at": report.reviewed_at,
         "created_at": report.created_at,
         "updated_at": report.updated_at,
-        "feedback"=report.feedback.
+        "feedback"=report.feedback,
         "evidences": evidence_list
     }
