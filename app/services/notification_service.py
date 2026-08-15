@@ -2,7 +2,6 @@ from sqlalchemy.orm import Session
 from datetime import datetime
 from app.models import Notification, User, Report
 
-logger = logging.getLogger(__name__)
 
 class NotificationService:
     
@@ -127,15 +126,13 @@ class NotificationService:
         """
         Create notification for Security Team when feedback is given or updated
         """
-        from app.models import Notification
-        
         feedback_preview = feedback[:100] + "..." if len(feedback) > 100 else feedback
         
         action = "updated" if is_update else "provided"
         
         notification = Notification(
             user_id=reviewer_id,
-            title=f"📝 Feedback {action} by {user_name}",
+            title=f"Feedback {action} by {user_name}",
             message=f"Bug Hunter '{user_name}' has {action} feedback on report '{report_title}':\n\n{feedback_preview}",
             type="feedback",
             reference_id=report_id,
@@ -145,5 +142,3 @@ class NotificationService:
         
         db.add(notification)
         db.commit()
-        
-        logger.info(f"📧 Feedback notification sent to Security Team member {reviewer_id} for report {report_id}")
