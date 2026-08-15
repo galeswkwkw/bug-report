@@ -2,6 +2,8 @@ from sqlalchemy.orm import Session
 from datetime import datetime
 from app.models import Notification, User, Report
 
+logger = logging.getLogger(__name__)
+
 class NotificationService:
     
     @staticmethod
