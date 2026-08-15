@@ -208,6 +208,7 @@ class ReportResponse(BaseModel):
     reviewed_at: Optional[datetime] = None
     accepted_at: Optional[datetime] = None
     rejected_at: Optional[datetime] = None
+    feedback: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     asset_name: Optional[str] = None
@@ -276,3 +277,6 @@ class ReportUpdateByResearcherRequest(BaseModel):
     affected_endpoint: Optional[str] = None 
     severity: Optional[str] = Field(None, pattern="^(Critical|High|Medium|Low|Informational)$")
 
+class ReportFeedbackRequest(BaseModel):
+    """Request untuk memberikan feedback pada report"""
+    feedback: str = Field(..., min_length=1, max_length=1000, description="Feedback content")

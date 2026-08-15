@@ -35,7 +35,8 @@ class Report(Base):
     
     created_at = Column(TIMESTAMP, default=func.now())
     updated_at = Column(TIMESTAMP, default=func.now(), onupdate=func.now())
-    
+
+    feedback = Column(Text, nullable=True)      
     
     user = relationship("User", foreign_keys=[user_id])
     asset = relationship("Asset")

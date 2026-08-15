@@ -17,6 +17,7 @@ from app.auth import get_current_active_user, get_current_admin
 from app.auth import get_current_active_user
 from app.minio_client import minio_client
 from app.config import Config
+from app.schemas import ReportFeedbackRequest
 from app.services.notification_service import NotificationService
 from app.schemas import AssignReportRequest
 from app.schemas import ReportUpdateByResearcherRequest
@@ -103,6 +104,7 @@ async def get_reports(
             updated_at=report.updated_at,
             asset_name=asset.name if asset else None,
             user_name=user.full_name if user else None,
+
             can_edit=can_edit  
         ))
     
@@ -548,8 +550,95 @@ async def assign_report(
         "status": report.status
     }
 
+# PUT /reports/{report_id}/feedback - UPDATE FEEDBACK
 
-# GET /reports/{id} - GET REPORT BY ID
+@router.put("/{report_id}/feedback")
+async def update_report_feedback(
+    report_id: int,
+    request: ReportFeedbackRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Update feedback on a report (Bug Hunter only).
+    
+    - Only the report owner (Bug Hunter) can give/update feedback
+    - Only reports with status 'Accepted' or 'Rejected' can receive feedback
+    - Admin CANNOT see feedback in detail report (only Security Team can)
+    - Notification will be sent to IT Security when feedback is given/updated
+    """
+    
+   
+    report = db.query(Report).filter(Report.id == report_id).first()
+    if not report:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Report with ID {report_id} not found"
+        )
+    
+   
+    if report.user_id != current_user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="Only the report owner can give feedback"
+        )
+    
+    # 3. Check report status (only Accepted or Rejected)
+    if report.status not in ["Accepted", "Rejected"]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot give feedback on report with status: {report.status}. Only Accepted or Rejected reports can receive feedback."
+        )
+    
+  
+    from app.utils.sanitizers import Sanitizers
+    sanitized_feedback = Sanitizers.sanitize_text(request.feedback)
+    
+    if not sanitized_feedback:
+        raise HTTPException(
+            status_code=400,
+            detail="Feedback cannot be empty"
+        )
+    
+  
+    is_new_feedback = report.feedback is None
+    
+   
+    report.feedback = sanitized_feedback
+    report.updated_at = datetime.now()
+    
+    try:
+        db.commit()
+        db.refresh(report)
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to save feedback: {str(e)}"
+        )
+    
+   
+    security_team = db.query(User).filter(User.role_id == 2).all()
+    
+    for security in security_team:
+        NotificationService.create_feedback_notification(
+            db=db,
+            reviewer_id=security.id,
+            report_id=report.id,
+            report_title=report.title,
+            feedback=sanitized_feedback,
+            user_name=current_user.full_name,
+            is_update=not is_new_feedback
+        )
+    
+    return {
+        "success": True,
+        "message": "Feedback updated successfully" if not is_new_feedback else "Feedback submitted successfully",
+        "report_id": report.id,
+        "feedback": report.feedback,
+        "is_new": is_new_feedback
+    }
+
 @router.get("/{report_id}", response_model=ReportResponse)
 async def get_report_by_id(
     report_id: int,
@@ -558,6 +647,10 @@ async def get_report_by_id(
 ):
     """
     Get report by ID (User must be authenticated)
+    
+    - Bug Hunter: Can see their own reports (including their own feedback)
+    - Security Team: Can see all reports (including feedback from Bug Hunters)
+    - Admin: Can see all reports (but CANNOT see feedback)
     """
     report = db.query(Report).filter(Report.id == report_id).first()
     if not report:
@@ -566,7 +659,11 @@ async def get_report_by_id(
             detail=f"Report with ID {report_id} not found"
         )
     
-    if current_user.role_id != 1 and report.user_id != current_user.id:
+    is_admin = current_user.role_id == 1
+    is_security = current_user.role_id == 2
+    is_owner = report.user_id == current_user.id
+    
+    if not (is_admin or is_security or is_owner):
         raise HTTPException(
             status_code=403,
             detail="You are not authorized to view this report"
@@ -584,8 +681,18 @@ async def get_report_by_id(
                 "name": reviewer.full_name
             }
     
-    #
     can_edit = (report.status == "Submitted" and report.user_id == current_user.id)
+    
+    
+    
+    feedback = None
+    
+    if is_admin:
+        
+        feedback = None
+    else:
+        
+        feedback = report.feedback
     
     return ReportResponse(
         id=report.id,
@@ -613,7 +720,8 @@ async def get_report_by_id(
         updated_at=report.updated_at,
         asset_name=asset.name if asset else None,
         user_name=user.full_name if user else None,
-        can_edit=can_edit  
+        can_edit=can_edit,
+        feedback=feedback
     )
 
 # PUT /reports/evidence/{id} - UPDATE EVIDENCE (ADMIN OR OWNER)
