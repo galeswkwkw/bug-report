@@ -243,7 +243,7 @@ class ReportUpdateRequest(BaseModel):
 
 class ReviewRequest(BaseModel):
     result: str = Field(..., pattern="^(accepted|rejected)$")
-    severity: Optional[str] = Field(None, pattern="^(Critical\+|Critical\-|Critical|High|Medium|Low)$")
+    severity: Optional[str] = Field(None, pattern="^(Critical\+|Critical\-|Critical|High|High\-|Medium|Low)$")
     comment: Optional[str] = None
     reject_reason: Optional[str] = None
 
@@ -275,7 +275,7 @@ class ReportUpdateByResearcherRequest(BaseModel):
     steps_to_resolve: Optional[str] = None
     impact: Optional[str] = None
     affected_endpoint: Optional[str] = None 
-    severity: Optional[str] = Field(None, pattern="^(Critical|High|Medium|Low|Informational)$")
+    severity: Optional[str] = Field(None, pattern="^(Critical\-|Critical|High|High\-|Medium|Low)$")
 
 class ReportFeedbackRequest(BaseModel):
     """Request untuk memberikan feedback pada report"""

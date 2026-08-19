@@ -1,10 +1,12 @@
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
-from fastapi import HTTPException, status, Depends
+from fastapi import HTTPException, status, Depends, Request
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 import bcrypt
+from app.utils.rate_limiter import RateLimiter, rate_limiter, get_client_ip
+from app.utils.sanitizers import Sanitizers
 
 from app.config import Config
 from app.database import SessionLocal
@@ -106,13 +108,40 @@ def check_self_or_admin(current_user: User, target_user_id: int, db: Session):
     """
     Check if current user is admin or the target user themselves.
     """
-    # Check if admin
+    
     role = db.query(Role).filter(Role.id == current_user.role_id).first()
     if role and role.name == "Admin":
         return True
     
-    # Check if self
+    
     if current_user.id == target_user_id:
         return True
     
     return False
+
+def get_current_user_with_session(
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+):
+    """
+    Get current user AND validate session
+    """
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    
+    try:
+        payload = jwt.decode(token, Config.SECRET_KEY, algorithms=[Config.ALGORITHM])
+        user_id: int = payload.get("sub")
+        if user_id is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+    
+    user = db.query(User).filter(User.id == user_id).first()
+    if user is None:
+        raise credentials_exception
+    
+    return user

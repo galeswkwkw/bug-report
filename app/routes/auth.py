@@ -5,9 +5,13 @@ from sqlalchemy.exc import IntegrityError
 from datetime import timedelta
 import uuid
 import os
+from app.services.session_service import SessionService
 
+from app.utils.rate_limiter import rate_limiter, get_client_ip
+from fastapi import Request
+from app.utils.sanitizers import Sanitizers
 from app.database import SessionLocal
-from app.models import User, Role, Department, UserDocument, DocumentType, PasswordResetToken  # ✅ Tambahkan PasswordResetToken di sini
+from app.models import User, Role, Department, UserDocument, DocumentType, PasswordResetToken  
 from app.schemas import (
     RegisterInternalRequest, 
     RegisterExternalRequest, 
@@ -192,78 +196,108 @@ async def reset_password(
     return ResetPasswordResponse(
         message=result["message"]
     )
-
 @router.post("/register", response_model=RegisterResponse)
 async def register(
     request: dict,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    http_request: Request = None
 ):
     """
-    Unified registration endpoint for internal and external researchers.
-    NO FILE UPLOAD - use /auth/upload-documents separately.
+    Unified registration endpoint with rate limiting
     """
-    researcher_type = request.get("researcher_type", "").lower()
+    
+    sanitized_data = Sanitizers.sanitize_user_data(request)
+
+    
+    client_ip = get_client_ip(http_request)
+    allowed, wait_time = rate_limiter.check(f"register_{client_ip}")
+    
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Too many registration attempts. Please try again in {wait_time} seconds."
+        )
+    
+    
+    researcher_type = sanitized_data.get("researcher_type", "").lower()
+    email = sanitized_data.get("email")
+    full_name = sanitized_data.get("full_name")
+    password = sanitized_data.get("password")
+    confirm_password = sanitized_data.get("confirm_password")
+    phone_number = sanitized_data.get("phone_number")
+    employee_id = sanitized_data.get("employee_id")
+    department_name = sanitized_data.get("department")
+    company = sanitized_data.get("company")
+    
+    
     if researcher_type not in ["internal", "external"]:
         raise HTTPException(
             status_code=400,
             detail="researcher_type must be 'internal' or 'external'"
         )
     
-    email = request.get("email")
+    
     existing_user = db.query(User).filter(User.email == email).first()
     if existing_user:
+        rate_limiter.record_attempt(f"register_{client_ip}")
         raise HTTPException(status_code=400, detail="Email already registered")
     
-    password = request.get("password")
-    confirm_password = request.get("confirm_password")
+    
+    rate_limiter.reset(f"register_{client_ip}")
+    
+    
     if password != confirm_password:
         raise HTTPException(status_code=400, detail="Passwords do not match")
     if len(password) < 8:
         raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
     
+    
     role = db.query(Role).filter(Role.name == "Bug Hunter").first()
     if not role:
         raise HTTPException(status_code=500, detail="Bug Hunter role not found. Please run seed data.")
     
+    
     user_data = {
         "role_id": role.id,
         "researcher_type": researcher_type.capitalize(),
-        "full_name": request.get("full_name"),
-        "email": request.get("email"),
+        "full_name": full_name,
+        "email": email,
         "password_hash": hash_password(password),
         "status": "Pending"
     }
     
+    
     if researcher_type == "internal":
-        if not request.get("employee_id"):
+        if not employee_id:
             raise HTTPException(status_code=400, detail="employee_id required for internal researcher")
-        if not request.get("department"):
+        if not department_name:
             raise HTTPException(status_code=400, detail="department required for internal researcher")
         
-        department = db.query(Department).filter(Department.name == request.get("department")).first()
+        department = db.query(Department).filter(Department.name == department_name).first()
         if not department:
-            department = Department(name=request.get("department"))
+            department = Department(name=department_name)
             db.add(department)
             db.flush()
         
         user_data.update({
-            "employee_id": request.get("employee_id"),
+            "employee_id": employee_id,
             "department_id": department.id,
             "company": None,
-            "phone_number": request.get("phone_number")
+            "phone_number": phone_number
         })
     else:
-        if not request.get("company"):
+        if not company:
             raise HTTPException(status_code=400, detail="company required for external researcher")
-        if not request.get("phone_number"):
+        if not phone_number:
             raise HTTPException(status_code=400, detail="phone_number required for external researcher")
         
         user_data.update({
-            "company": request.get("company"),
-            "phone_number": request.get("phone_number"),
+            "company": company,
+            "phone_number": phone_number,
             "employee_id": None,
             "department_id": None
         })
+    
     
     new_user = User(**user_data)
     db.add(new_user)
@@ -275,44 +309,55 @@ async def register(
         db.rollback()
         raise HTTPException(status_code=400, detail=f"Registration failed: {str(e)}")
     
-    admin = db.query(User).filter(User.role_id == 1).first()
-    if admin:
-        from app.services.notification_service import NotificationService
-        NotificationService.create_registration_notification(
-            db=db,
-            user_name=new_user.full_name
-        )
+    
+    NotificationService.create_registration_notification(
+        db=db,
+        user_name=new_user.full_name
+    )
     
     return RegisterResponse(
         success=True,
-        message="Registration successful. Please upload your KTP and NDA documents via /auth/upload-documents",
+        message="Registration successful. Please upload your NDA documents via /auth/upload-documents",
         status="Pending",
         user_id=new_user.id
     )
 
-# ============================================================
-# POST /auth/login
-# ============================================================
 @router.post("/login", response_model=LoginResponse)
 async def login(
     request: LoginRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    http_request: Request = None
 ):
     """
-    Login endpoint - returns JWT token
+    Login endpoint - returns JWT token with rate limiting
     """
-    user = db.query(User).filter(User.email == request.email).first()
+    sanitized_email = Sanitizers._sanitize_email(request.email)
+    
+    client_ip = get_client_ip(http_request)
+    allowed, wait_time = rate_limiter.check(f"login_{client_ip}")
+    
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Too many login attempts. Please try again in {wait_time} seconds."
+        )
+    
+    user = db.query(User).filter(User.email == sanitized_email).first()
     if not user:
+        rate_limiter.record_attempt(f"login_{client_ip}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password"
         )
     
     if not verify_password(request.password, user.password_hash):
+        rate_limiter.record_attempt(f"login_{client_ip}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password"
         )
+    
+    rate_limiter.reset(f"login_{client_ip}")
     
     if user.status != "Active":
         raise HTTPException(
@@ -332,14 +377,24 @@ async def login(
     
     role_name = db.query(Role).filter(Role.id == user.role_id).first()
     department_name = db.query(Department).filter(Department.id == user.department_id).first()
+    client_ip = get_client_ip(http_request)
+    user_agent = http_request.headers.get("user-agent", "Unknown")
+    
+    session = SessionService.create_session(
+        db=db,
+        user_id=user.id,
+        refresh_token=refresh_token,
+        ip_address=client_ip,
+        user_agent=user_agent
+    )
     
     return LoginResponse(
         success=True,
         message="Login successful",
         access_token=access_token,
-        refresh_token=refresh_token,  
+        refresh_token=refresh_token,
         token_type="bearer",
-        expires_in=Config.ACCESS_TOKEN_EXPIRE_MINUTES * 60, 
+        expires_in=Config.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         user={
             "id": user.id,
             "full_name": user.full_name,
@@ -349,9 +404,11 @@ async def login(
             "department": department_name.name if department_name else None,
             "status": user.status,
             "total_point": user.total_point,
-            "must_change_password": user.must_change_password
+            "must_change_password": user.must_change_password,
+            "session_id": session.session_token  
         }
     )
+
 
 
 # GET /roles
@@ -573,3 +630,59 @@ async def upload_documents(
         "documents": uploaded_files,
         "status": user.status
     }
+
+@router.post("/logout")
+async def logout(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+    http_request: Request = None
+):
+    """
+    Logout user dari session saat ini
+    """
+    
+    auth_header = http_request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        
+        
+        pass
+    
+    
+    
+    
+    return {"message": "Logged out successfully"}
+
+
+@router.post("/logout-all")
+async def logout_all_devices(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Logout dari semua perangkat (logout all sessions)
+    """
+    count = SessionService.logout_all_sessions(db, current_user.id)
+    
+    return {
+        "message": f"Logged out from all {count} devices successfully"
+    }
+
+
+@router.get("/sessions")
+async def get_sessions(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Dapatkan daftar semua session aktif user
+    """
+    sessions = SessionService.get_active_sessions(db, current_user.id)
+    
+    max_sessions = SessionService.get_max_sessions(current_user.role_id)
+    
+    return {
+        "success": True,
+        "max_sessions": max_sessions,
+        "current_sessions": len(sessions),
+        "data": sessions
+    

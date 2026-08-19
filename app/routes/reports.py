@@ -41,12 +41,32 @@ def get_current_security(current_user: User = Depends(get_current_active_user)):
     return current_user
 
 def get_current_admin_or_security(current_user: User = Depends(get_current_active_user)):
-    if current_user.role_id not in [1, 2]:  # Admin atau Security Team
+    if current_user.role_id not in [1, 2]: \
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin or Security Team access required"
         )
     return current_user
+
+def check_report_access(report: Report, current_user: User) -> bool:
+    """
+    Cek apakah user memiliki akses ke report.
+    - Admin: selalu bisa
+    - Security Team: selalu bisa
+    - Bug Hunter: hanya report sendiri
+    """
+    if current_user.role_id in [1, 2]: \
+        return True
+    return report.user_id == current_user.id
+
+
+def check_report_access_or_403(report: Report, current_user: User):
+    """Cek akses dan raise 403 jika tidak punya"""
+    if not check_report_access(report, current_user):
+        raise HTTPException(
+            status_code=403,
+            detail="You are not authorized to view this report"
+        )
 
 # GET /reports - GET ALL REPORTS
 @router.get("", response_model=list[ReportResponse])
@@ -56,11 +76,19 @@ async def get_reports(
 ):
     """
     Get all reports (User must be authenticated)
+    
+    🔒 Authorization:
+    - Admin (role_id=1): semua report
+    - Security Team (role_id=2): semua report (untuk review)
+    - Bug Hunter (role_id=3): hanya report sendiri
     """
-    if current_user.role_id == 1:  
+    if current_user.role_id in [1, 2]:  
         reports = db.query(Report).order_by(Report.created_at.desc()).all()
     else:
-        reports = db.query(Report).filter(Report.user_id == current_user.id).order_by(Report.created_at.desc()).all()
+        # Bug Hunter: hanya report sendiri
+        reports = db.query(Report).filter(
+            Report.user_id == current_user.id
+        ).order_by(Report.created_at.desc()).all()
     
     result = []
     for report in reports:
@@ -77,6 +105,10 @@ async def get_reports(
                 }
         
         can_edit = (report.status == "Submitted" and report.user_id == current_user.id)
+        
+        feedback = None
+        if current_user.role_id == 2: 
+            feedback = report.feedback
         
         result.append(ReportResponse(
             id=report.id,
@@ -104,8 +136,7 @@ async def get_reports(
             updated_at=report.updated_at,
             asset_name=asset.name if asset else None,
             user_name=user.full_name if user else None,
-
-            can_edit=can_edit  
+            can_edit=can_edit
         ))
     
     return result
@@ -551,7 +582,6 @@ async def assign_report(
     }
 
 # PUT /reports/{report_id}/feedback - UPDATE FEEDBACK
-
 @router.put("/{report_id}/feedback")
 async def update_report_feedback(
     report_id: int,
@@ -583,7 +613,6 @@ async def update_report_feedback(
             detail="Only the report owner can give feedback"
         )
     
-    # 3. Check report status (only Accepted or Rejected)
     if report.status not in ["Accepted", "Rejected"]:
         raise HTTPException(
             status_code=400,
@@ -1128,7 +1157,8 @@ async def delete_evidence(
     
     return None  # 204 No Content
 
-# GET /reports/{id}/evidences - GET ALL EVIDENCES (WITH FILTER TYPE)
+
+# GET /reports/{id}/evidences - GET ALL EVIDENCES
 @router.get("/{report_id}/evidences", response_model=dict)
 async def get_report_evidences(
     report_id: int,
@@ -1138,13 +1168,11 @@ async def get_report_evidences(
 ):
     """
     Get all evidences for a report.
-    - Researcher: only their own reports
-    - Admin/Security: all reports
     
-    **Filter by type:**
-    - type=evidence → hanya evidence
-    - type=result → hanya result
-    - type=None → semua (default)
+    🔒 Authorization:
+    - Bug Hunter: ONLY their own reports
+    - Admin: all reports
+    - Security Team: all reports
     """
     report = db.query(Report).filter(Report.id == report_id).first()
     if not report:
@@ -1153,12 +1181,7 @@ async def get_report_evidences(
             detail=f"Report with ID {report_id} not found"
         )
 
-    is_admin_or_security = current_user.role_id in [1, 3]  
-    if not is_admin_or_security and report.user_id != current_user.id:
-        raise HTTPException(
-            status_code=403,
-            detail="You are not authorized to view evidences for this report"
-        )
+    check_report_access_or_403(report, current_user)
     
     query = db.query(ReportEvidence).filter(ReportEvidence.report_id == report_id)
     
@@ -1187,7 +1210,7 @@ async def get_report_evidences(
                 bucket_name=evidence.bucket_name,
                 file_size=evidence.file_size,
                 content_type=evidence.content_type,
-                type=evidence.type,  # 
+                type=evidence.type,
                 created_at=evidence.created_at,
                 url=presigned_url
             )
