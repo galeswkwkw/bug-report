@@ -141,7 +141,6 @@ async def get_reports(
     
     return result
 
-# GET /reports/export - EXPORT REPORTS (ADMIN ONLY)
 @router.get("/export")
 async def export_reports(
     current_user: User = Depends(get_current_admin),
@@ -149,23 +148,20 @@ async def export_reports(
     status: Optional[str] = None,
     severity: Optional[str] = None,
     search: Optional[str] = None,
+    
+    asset_id: Optional[int] = None,        
+    asset_name: Optional[str] = None,      
     format: str = "xlsx"
 ):
-    """
-    Export reports based on filters.
-    - Admin only
-    - Supported formats: xlsx, csv
-    - Filters: status, severity, search
-    """
     import io
     import csv
     from openpyxl import Workbook
     from fastapi.responses import StreamingResponse
     
-    # 1. Build query
+   
     query = db.query(Report)
     
-    # 2. Apply filters
+   
     if status:
         if status == "valid":
             query = query.filter(Report.status == "Accepted")
@@ -189,34 +185,42 @@ async def export_reports(
             (Report.description.ilike(f"%{search}%"))
         )
     
-    # 3. Get data
+   
+    if asset_id:
+        query = query.filter(Report.asset_id == asset_id)
+    
+    if asset_name:
+      
+        query = query.join(Asset, Report.asset_id == Asset.id)
+        query = query.filter(Asset.name.ilike(f"%{asset_name}%"))
+   
+    
+   
     reports = query.order_by(Report.created_at.desc()).all()
     
-    # 4. Build data rows
+   
     data = []
     for report in reports:
         user = db.query(User).filter(User.id == report.user_id).first()
         asset = db.query(Asset).filter(Asset.id == report.asset_id).first()
-        reviewer = db.query(User).filter(User.id == report.reviewer_id).first()
-        assigned_to = db.query(User).filter(User.id == report.assigned_to).first()
         
         data.append({
             "Report ID": report.id,
             "Title": report.title,
             "Researcher Name": user.full_name if user else None,
-            "Asset": asset.name if asset else None,
+            "Asset ID": report.asset_id,
+            "Asset Name": asset.name if asset else None,
             "Category": report.category,
             "Severity": report.severity,
             "Status": report.status,
-            "Assigned To": assigned_to.full_name if assigned_to else None,
             "Submitted At": report.created_at.strftime("%Y-%m-%d %H:%M:%S") if report.created_at else None,
             "Reviewed At": report.reviewed_at.strftime("%Y-%m-%d %H:%M:%S") if report.reviewed_at else None,
         })
     
-    # 5. Generate filename
+   
     filename = f"reports_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     
-    # 6. Export berdasarkan format
+   
     if format.lower() == "csv":
         output = io.StringIO()
         if data:
@@ -232,17 +236,17 @@ async def export_reports(
             headers={"Content-Disposition": f"attachment; filename={filename}.csv"}
         )
     
-    else:  # default xlsx
+    else:  
         wb = Workbook()
         ws = wb.active
         ws.title = "Reports"
         
         if data:
-            # Headers
+           
             headers = list(data[0].keys())
             ws.append(headers)
             
-            # Data rows
+          
             for row in data:
                 ws.append(list(row.values()))
         
