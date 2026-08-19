@@ -633,26 +633,27 @@ async def upload_documents(
 
 @router.post("/logout")
 async def logout(
-    request: dict,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user), 
+    token: str = Depends(oauth2_scheme) 
 ):
     """
-    Logout user dari session saat ini
+    Logout user - cukup kirim JWT token saja (FE tidak perlu session_id)
     """
     from app.models import UserSession
     
-    session_id = request.get("session_id")
-    if not session_id:
-        raise HTTPException(
-            status_code=400,
-            detail="session_id is required. Please provide the session_id from login response."
-        )
+   
+    try:
+        payload = jwt.decode(token, Config.SECRET_KEY, algorithms=[Config.ALGORITHM])
+        user_id = payload.get("sub")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    
     
     session = db.query(UserSession).filter(
-        UserSession.session_token == session_id,
-        UserSession.user_id == current_user.id,
-        UserSession.is_active == True
+        UserSession.user_id == user_id,
+        UserSession.is_active == True,
+        UserSession.expires_at > datetime.utcnow()
     ).first()
     
     if session:
@@ -660,7 +661,7 @@ async def logout(
         db.commit()
         return {"message": "Logged out successfully"}
     
-    return {"message": "Logged out successfully (session already inactive or not found)"}
+    return {"message": "Logged out successfully (no active session found)"}
 
 
 @router.post("/logout-all")

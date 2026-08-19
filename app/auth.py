@@ -124,14 +124,15 @@ def get_current_user_with_session(
     db: Session = Depends(get_db)
 ):
     """
-    Get current user AND validate session
+    Get current user AND validate session.
+    Juga otomatis hapus session terlama jika melebihi batas.
     """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    
+
     try:
         payload = jwt.decode(token, Config.SECRET_KEY, algorithms=[Config.ALGORITHM])
         user_id: int = payload.get("sub")
@@ -139,9 +140,49 @@ def get_current_user_with_session(
             raise credentials_exception
     except JWTError:
         raise credentials_exception
-    
+
+   
     user = db.query(User).filter(User.id == user_id).first()
     if user is None:
         raise credentials_exception
+
+   
+   
+    active_session = db.query(UserSession).filter(
+        UserSession.user_id == user.id,
+        UserSession.is_active == True,
+        UserSession.expires_at > datetime.utcnow()
+    ).first()
+
+  
+    if not active_session:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session expired or not found. Please login again."
+        )
+
+   
+    max_sessions = SessionService.get_max_sessions(user.role_id)
     
+    active_sessions_count = db.query(UserSession).filter(
+        UserSession.user_id == user.id,
+        UserSession.is_active == True,
+        UserSession.expires_at > datetime.utcnow()
+    ).count()
+
+    
+    if active_sessions_count > max_sessions:
+        
+        oldest_session = db.query(UserSession).filter(
+            UserSession.user_id == user.id,
+            UserSession.is_active == True,
+            UserSession.expires_at > datetime.utcnow(),
+            UserSession.id != active_session.id 
+        ).order_by(UserSession.created_at.asc()).first()
+
+        if oldest_session:
+            oldest_session.is_active = False
+            db.commit()
+            print(f"🔒 Auto-logout session ID {oldest_session.id} karena melebihi batas {max_sessions}")
+
     return user
