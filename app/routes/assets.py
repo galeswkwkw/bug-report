@@ -7,6 +7,7 @@ from app.database import SessionLocal
 from app.models import Asset, User
 from app.schemas import AssetCreateRequest, AssetUpdateRequest, AssetResponse
 from app.auth import get_current_admin, get_current_active_user
+from app.auth import get_current_admin_or_security
 
 router = APIRouter(prefix="/assets", tags=["Assets"])
 
@@ -25,9 +26,24 @@ async def get_assets(
     db: Session = Depends(get_db)
 ):
     """
-    Get all assets (User must be authenticated)
+    Get all assets 
+    - Admin/Security: Lihat semua (termasuk inactive)
+    - Bug Hunter: Hanya lihat yang active (is_active=True)
     """
-    assets = db.query(Asset).order_by(Asset.created_at.desc()).all()
+    # Cek role user
+    from app.models import Role
+    user_role = db.query(Role).filter(Role.id == current_user.role_id).first()
+    role_name = user_role.name if user_role else None
+
+    # Query dasar
+    query = db.query(Asset)
+
+    # Jika bukan Admin/Security, filter hanya yang aktif
+    if role_name not in ["Admin", "Security Team"]:
+        query = query.filter(Asset.is_active == True)
+
+    # Urutkan
+    assets = query.order_by(Asset.created_at.desc()).all()
     
     return [
         AssetResponse(
