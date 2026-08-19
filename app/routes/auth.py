@@ -633,24 +633,34 @@ async def upload_documents(
 
 @router.post("/logout")
 async def logout(
+    request: dict,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
-    http_request: Request = None
+    current_user: User = Depends(get_current_active_user)
 ):
     """
     Logout user dari session saat ini
     """
+    from app.models import UserSession
     
-    auth_header = http_request.headers.get("Authorization")
-    if auth_header and auth_header.startswith("Bearer "):
-        
-        
-        pass
+    session_id = request.get("session_id")
+    if not session_id:
+        raise HTTPException(
+            status_code=400,
+            detail="session_id is required. Please provide the session_id from login response."
+        )
     
+    session = db.query(UserSession).filter(
+        UserSession.session_token == session_id,
+        UserSession.user_id == current_user.id,
+        UserSession.is_active == True
+    ).first()
     
+    if session:
+        session.is_active = False
+        db.commit()
+        return {"message": "Logged out successfully"}
     
-    
-    return {"message": "Logged out successfully"}
+    return {"message": "Logged out successfully (session already inactive or not found)"}
 
 
 @router.post("/logout-all")
