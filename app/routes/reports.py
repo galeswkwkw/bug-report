@@ -149,8 +149,7 @@ async def export_reports(
     severity: Optional[str] = None,
     search: Optional[str] = None,
     
-    asset_id: Optional[int] = None,        
-    asset_name: Optional[str] = None,      
+    asset_id: Optional[int] = None,     
     format: str = "xlsx"
 ):
     import io
@@ -161,7 +160,7 @@ async def export_reports(
    
     query = db.query(Report)
     
-   
+    
     if status:
         if status == "valid":
             query = query.filter(Report.status == "Accepted")
@@ -185,14 +184,9 @@ async def export_reports(
             (Report.description.ilike(f"%{search}%"))
         )
     
-   
+  
     if asset_id:
         query = query.filter(Report.asset_id == asset_id)
-    
-    if asset_name:
-      
-        query = query.join(Asset, Report.asset_id == Asset.id)
-        query = query.filter(Asset.name.ilike(f"%{asset_name}%"))
    
     
    
@@ -203,24 +197,27 @@ async def export_reports(
     for report in reports:
         user = db.query(User).filter(User.id == report.user_id).first()
         asset = db.query(Asset).filter(Asset.id == report.asset_id).first()
+       
+       
         
         data.append({
             "Report ID": report.id,
             "Title": report.title,
             "Researcher Name": user.full_name if user else None,
-            "Asset ID": report.asset_id,
-            "Asset Name": asset.name if asset else None,
+            "Asset ID": report.asset_id,         
+            "Asset Name": asset.name if asset else None, 
             "Category": report.category,
             "Severity": report.severity,
             "Status": report.status,
             "Submitted At": report.created_at.strftime("%Y-%m-%d %H:%M:%S") if report.created_at else None,
             "Reviewed At": report.reviewed_at.strftime("%Y-%m-%d %H:%M:%S") if report.reviewed_at else None,
+            
         })
     
-   
+    
     filename = f"reports_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     
-   
+    
     if format.lower() == "csv":
         output = io.StringIO()
         if data:
@@ -236,17 +233,14 @@ async def export_reports(
             headers={"Content-Disposition": f"attachment; filename={filename}.csv"}
         )
     
-    else:  
+    else:
         wb = Workbook()
         ws = wb.active
         ws.title = "Reports"
         
         if data:
-           
             headers = list(data[0].keys())
             ws.append(headers)
-            
-          
             for row in data:
                 ws.append(list(row.values()))
         
