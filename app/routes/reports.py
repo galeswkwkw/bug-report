@@ -203,8 +203,7 @@ async def export_reports(
         data.append({
             "Report ID": report.id,
             "Title": report.title,
-            "Researcher Name": user.full_name if user else None,
-            "Asset ID": report.asset_id,         
+            "Researcher Name": user.full_name if user else None,        
             "Asset Name": asset.name if asset else None, 
             "Category": report.category,
             "Severity": report.severity,
