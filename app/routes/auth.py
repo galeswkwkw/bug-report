@@ -685,4 +685,4 @@ async def get_sessions(
         "max_sessions": max_sessions,
         "current_sessions": len(sessions),
         "data": sessions
-    
+    } 
