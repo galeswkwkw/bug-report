@@ -9,7 +9,7 @@ from app.utils.rate_limiter import RateLimiter, rate_limiter, get_client_ip
 from app.utils.sanitizers import Sanitizers
 
 from app.config import Config
-from app.database import SessionLocal
+from app.database import SessionLocal, get_db
 from app.models import User
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
