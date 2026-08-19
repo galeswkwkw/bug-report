@@ -30,6 +30,7 @@ from app.config import Config
 from app.services.password_reset_service import PasswordResetService
 from app.services.email_service import EmailService
 from app.auth import oauth2_scheme 
+from jose import JWTError, jwt
 
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
