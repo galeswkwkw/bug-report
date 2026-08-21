@@ -65,6 +65,47 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
         user = db.query(User).filter(User.id == user_id).first()
         if user is None:
             raise credentials_exception
+        
+        
+        
+        
+        from app.models import UserSession
+        from app.services.session_service import SessionService
+        
+        active_session = db.query(UserSession).filter(
+            UserSession.user_id == user.id,
+            UserSession.is_active == True,
+            UserSession.expires_at > datetime.utcnow()
+        ).first()
+        
+        if not active_session:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Session expired or not found. Please login again."
+            )
+        
+        
+        max_sessions = SessionService.get_max_sessions(user.role_id)
+        active_sessions_count = db.query(UserSession).filter(
+            UserSession.user_id == user.id,
+            UserSession.is_active == True,
+            UserSession.expires_at > datetime.utcnow()
+        ).count()
+        
+        if active_sessions_count > max_sessions:
+            oldest_session = db.query(UserSession).filter(
+                UserSession.user_id == user.id,
+                UserSession.is_active == True,
+                UserSession.expires_at > datetime.utcnow(),
+                UserSession.id != active_session.id
+            ).order_by(UserSession.created_at.asc()).first()
+            
+            if oldest_session:
+                oldest_session.is_active = False
+                db.commit()
+                print(f"🔒 Auto-logout session ID {oldest_session.id} karena melebihi batas {max_sessions}")
+        
+        
         return user
     finally:
         db.close()
