@@ -23,10 +23,12 @@ async def get_leaderboard(
 ):
     """
     Get leaderboard ranking of all researchers based on total points.
-    Only shows users with role_id = 2 (Researcher).
+    Only shows users with role_id = 3 (Researcher) AND status = Active.
     """
+    
     users = db.query(User).filter(
-        User.role_id == 3
+        User.role_id == 3,
+        User.status == "Active"  
     ).order_by(
         User.total_point.desc()
     ).all()
