@@ -13,8 +13,8 @@ class SessionService:
     """Service untuk mengelola session login"""
     
     MAX_SESSIONS = {
-        1: 999,  
-        2: 999,  
+        1: 3,  
+        2: 3,  
         3: 3,    
     }
     
