@@ -368,23 +368,13 @@ async def login(
             detail=f"Account is {user.status}. Please wait for admin approval."
         )
     
-    access_token_expires = timedelta(minutes=Config.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={
-            "sub": str(user.id), 
-            "email": user.email, 
-            "role": user.role_id,
-            "session_id": session.session_token
-        },
-        expires_delta=access_token_expires
-    )
-    
     refresh_token = create_refresh_token(
         data={"sub": str(user.id), "email": user.email, "role": user.role_id}
     )
     
     role_name = db.query(Role).filter(Role.id == user.role_id).first()
     department_name = db.query(Department).filter(Department.id == user.department_id).first()
+    
     client_ip = get_client_ip(http_request)
     user_agent = http_request.headers.get("user-agent", "Unknown")
     
@@ -394,6 +384,17 @@ async def login(
         refresh_token=refresh_token,
         ip_address=client_ip,
         user_agent=user_agent
+    )
+    
+    access_token_expires = timedelta(minutes=Config.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={
+            "sub": str(user.id), 
+            "email": user.email, 
+            "role": user.role_id,
+            "session_id": session.session_token  
+        },
+        expires_delta=access_token_expires
     )
     
     return LoginResponse(
