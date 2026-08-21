@@ -4,7 +4,7 @@ from sqlalchemy import func, extract
 from datetime import datetime, timedelta
 from app.database import SessionLocal
 from app.models import Report, User, Asset, PointRule  
-from app.auth import get_current_active_user
+from app.auth import get_current_admin
 
 router = APIRouter(prefix="/monitoring", tags=["Monitoring"])
 
@@ -15,22 +15,17 @@ def get_db():
     finally:
         db.close()
 
-
-
-# GET /monitoring - GET MONITORING DASHBOARD (ALL USERS)
-
 @router.get("")
 async def get_monitoring(
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
     """
     Get monitoring dashboard data.
-    Accessible by all authenticated users.
+    🔒 ADMIN ONLY
     """
     
-    # 1. MONTHLY TREND (6 bulan terakhir)
-    
+  
     monthly_trend = []
     current_date = datetime.now()
     
@@ -55,11 +50,8 @@ async def get_monitoring(
             "valid_reports": valid_reports
         })
     
-    
-    
-    
+  
     security_teams = db.query(User).filter(User.role_id == 2).all()
-    
     security_team_performance = []
     for team in security_teams:
         assigned = db.query(Report).filter(Report.assigned_to == team.id).count()
@@ -79,9 +71,7 @@ async def get_monitoring(
             "in_review_reports": in_review
         })
     
-    
-    # 3. TOP ASSETS (berdasarkan total reports)
-    
+  
     top_assets = db.query(
         Asset.id,
         Asset.name,
@@ -101,21 +91,16 @@ async def get_monitoring(
             "total_reports": asset.total_reports
         })
     
-    
-    # 4. SEVERITY DISTRIBUTION (HANYA YANG ACTIVE)
-    
-    
+  
     active_severities = db.query(PointRule.severity).filter(
         PointRule.is_active == True
     ).all()
     active_severity_list = [s[0].lower() for s in active_severities]
 
-    
     severity_distribution = {}
     for severity in active_severity_list:
         severity_distribution[severity] = 0
 
-    
     severity_stats = db.query(
         Report.severity,
         func.count(Report.id).label("total")
@@ -128,8 +113,11 @@ async def get_monitoring(
         if key in severity_distribution:
             severity_distribution[key] = stat.total
 
-    
-    # RESPONSE
+   
+   
+   
+    total_rejected = db.query(Report).filter(Report.status == "Rejected").count()
+
     
     return {
         "success": True,
@@ -137,6 +125,7 @@ async def get_monitoring(
             "monthly_trend": monthly_trend,
             "security_team_performance": security_team_performance,
             "top_assets": top_assets_data,
-            "severity_distribution": severity_distribution
+            "severity_distribution": severity_distribution,
+            "rejected_reports": total_rejected 
         }
     }
