@@ -25,10 +25,9 @@ async def get_leaderboard(
     Get leaderboard ranking of all researchers based on total points.
     Only shows users with role_id = 3 (Researcher) AND status = Active.
     """
-    
     users = db.query(User).filter(
         User.role_id == 3,
-        User.status == "Active"  
+        User.status == "Active"
     ).order_by(
         User.total_point.desc()
     ).all()
@@ -44,6 +43,7 @@ async def get_leaderboard(
         result.append({
             "rank": rank,
             "name": user.full_name,
+            "researcher_type": user.researcher_type, 
             "point": user.total_point,
             "total_accepted": total_accepted
         })
