@@ -55,6 +55,7 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
     try:
         payload = jwt.decode(token, Config.SECRET_KEY, algorithms=[Config.ALGORITHM])
         user_id: int = payload.get("sub")
+        session_id: str = payload.get("session_id")
         if user_id is None:
             raise credentials_exception
     except JWTError:
@@ -74,6 +75,7 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
         
         active_session = db.query(UserSession).filter(
             UserSession.user_id == user.id,
+            UserSession.session_token == session_id,
             UserSession.is_active == True,
             UserSession.expires_at > datetime.utcnow()
         ).first()
