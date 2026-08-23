@@ -212,8 +212,8 @@ async def export_reports(
             "Severity": report.severity,
             "Point": report.point,                                                               
             "Status": report.status,
-            "Reviewer": reviewer.full_name if reviewer else None,                                
-            "Review Comment": report.review_comment if report.review_comment else None,          
+            "Reviewer": reviewer.full_name if reviewer else None,                               
+            "Review Comment": report.review_comment if report.review_comment else None,         
             "Submitted At": report.created_at.strftime("%Y-%m-%d %H:%M:%S") if report.created_at else None,
             "Reviewed At": report.reviewed_at.strftime("%Y-%m-%d %H:%M:%S") if report.reviewed_at else None,
         })
@@ -246,7 +246,7 @@ async def export_reports(
             headers = list(data[0].keys())
             ws.append(headers)
             
-            # Data rows
+            
             for row in data:
                 ws.append(list(row.values()))
         
@@ -258,7 +258,7 @@ async def export_reports(
             output,
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             headers={"Content-Disposition": f"attachment; filename={filename}.xlsx"}
-        
+        )
 # # 4. GET /my-assigned - GET ASSIGNED REPORTS
 # # ============================================================
 # @router.get("/my-assigned")
