@@ -157,7 +157,7 @@ async def export_reports(
     from openpyxl import Workbook
     from fastapi.responses import StreamingResponse
     
-   
+    
     query = db.query(Report)
     
     
@@ -184,33 +184,38 @@ async def export_reports(
             (Report.description.ilike(f"%{search}%"))
         )
     
-  
+    
     if asset_id:
         query = query.filter(Report.asset_id == asset_id)
-   
     
-   
+    
     reports = query.order_by(Report.created_at.desc()).all()
     
-   
+    
     data = []
     for report in reports:
+        
         user = db.query(User).filter(User.id == report.user_id).first()
         asset = db.query(Asset).filter(Asset.id == report.asset_id).first()
-       
-       
+        
+        
+        reviewer = db.query(User).filter(User.id == report.reviewer_id).first() if report.reviewer_id else None
         
         data.append({
             "Report ID": report.id,
             "Title": report.title,
-            "Researcher Name": user.full_name if user else None,        
-            "Asset Name": asset.name if asset else None, 
+            "Researcher Name": user.full_name if user else None,
+            "Asset Name": asset.name if asset else None,
             "Category": report.category,
+            "Affected Endpoint": report.affected_endpoint if report.affected_endpoint else None, 
+            "Description": report.description if report.description else None,                   
             "Severity": report.severity,
+            "Point": report.point,                                                               
             "Status": report.status,
+            "Reviewer": reviewer.full_name if reviewer else None,                                
+            "Review Comment": report.review_comment if report.review_comment else None,          
             "Submitted At": report.created_at.strftime("%Y-%m-%d %H:%M:%S") if report.created_at else None,
             "Reviewed At": report.reviewed_at.strftime("%Y-%m-%d %H:%M:%S") if report.reviewed_at else None,
-            
         })
     
     
@@ -232,7 +237,7 @@ async def export_reports(
             headers={"Content-Disposition": f"attachment; filename={filename}.csv"}
         )
     
-    else:
+    else:  # default xlsx
         wb = Workbook()
         ws = wb.active
         ws.title = "Reports"
@@ -240,6 +245,8 @@ async def export_reports(
         if data:
             headers = list(data[0].keys())
             ws.append(headers)
+            
+            # Data rows
             for row in data:
                 ws.append(list(row.values()))
         
@@ -251,7 +258,7 @@ async def export_reports(
             output,
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             headers={"Content-Disposition": f"attachment; filename={filename}.xlsx"}
-        )
+        
 # # 4. GET /my-assigned - GET ASSIGNED REPORTS
 # # ============================================================
 # @router.get("/my-assigned")
