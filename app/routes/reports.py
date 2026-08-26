@@ -21,8 +21,7 @@ from app.schemas import ReportFeedbackRequest
 from app.services.notification_service import NotificationService
 from app.schemas import AssignReportRequest
 from app.schemas import ReportUpdateByResearcherRequest
-from app.utils.sanitizers import Sanitizers
-
+from app.utils.sanitizers import Sanitizers, sanitize_for_excel
 router = APIRouter(prefix="/reports", tags=["Reports"])
 
 def get_db():
