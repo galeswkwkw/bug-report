@@ -21,6 +21,7 @@ from app.schemas import ReportFeedbackRequest
 from app.services.notification_service import NotificationService
 from app.schemas import AssignReportRequest
 from app.schemas import ReportUpdateByResearcherRequest
+from app.utils.sanitizers import Sanitizers
 
 router = APIRouter(prefix="/reports", tags=["Reports"])
 
@@ -148,8 +149,7 @@ async def export_reports(
     status: Optional[str] = None,
     severity: Optional[str] = None,
     search: Optional[str] = None,
-    
-    asset_id: Optional[int] = None,     
+    asset_id: Optional[int] = None,
     format: str = "xlsx"
 ):
     import io
@@ -157,9 +157,7 @@ async def export_reports(
     from openpyxl import Workbook
     from fastapi.responses import StreamingResponse
     
-    
     query = db.query(Report)
-    
     
     if status:
         if status == "valid":
@@ -184,43 +182,35 @@ async def export_reports(
             (Report.description.ilike(f"%{search}%"))
         )
     
-    
     if asset_id:
         query = query.filter(Report.asset_id == asset_id)
     
-    
     reports = query.order_by(Report.created_at.desc()).all()
-    
     
     data = []
     for report in reports:
-        
         user = db.query(User).filter(User.id == report.user_id).first()
         asset = db.query(Asset).filter(Asset.id == report.asset_id).first()
-        
-        
         reviewer = db.query(User).filter(User.id == report.reviewer_id).first() if report.reviewer_id else None
         
         data.append({
             "Report ID": report.id,
-            "Title": report.title,
-            "Researcher Name": user.full_name if user else None,
-            "Asset Name": asset.name if asset else None,
-            "Category": report.category,
-            "Affected Endpoint": report.affected_endpoint if report.affected_endpoint else None, 
-            "Description": report.description if report.description else None,                   
-            "Severity": report.severity,
-            "Point": report.point,                                                               
-            "Status": report.status,
-            "Reviewer": reviewer.full_name if reviewer else None,                               
-            "Review Comment": report.review_comment if report.review_comment else None,         
+            "Title": sanitize_for_excel(report.title),
+            "Researcher Name": sanitize_for_excel(user.full_name if user else None),
+            "Asset Name": sanitize_for_excel(asset.name if asset else None),
+            "Category": sanitize_for_excel(report.category),
+            "Affected Endpoint": sanitize_for_excel(report.affected_endpoint),
+            "Description": sanitize_for_excel(report.description),
+            "Severity": sanitize_for_excel(report.severity),
+            "Point": report.point,
+            "Status": sanitize_for_excel(report.status),
+            "Reviewer": sanitize_for_excel(reviewer.full_name if reviewer else None),
+            "Review Comment": sanitize_for_excel(report.review_comment),
             "Submitted At": report.created_at.strftime("%Y-%m-%d %H:%M:%S") if report.created_at else None,
             "Reviewed At": report.reviewed_at.strftime("%Y-%m-%d %H:%M:%S") if report.reviewed_at else None,
         })
     
-    
     filename = f"reports_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-    
     
     if format.lower() == "csv":
         output = io.StringIO()
@@ -237,7 +227,7 @@ async def export_reports(
             headers={"Content-Disposition": f"attachment; filename={filename}.csv"}
         )
     
-    else:  # default xlsx
+    else:
         wb = Workbook()
         ws = wb.active
         ws.title = "Reports"
@@ -245,10 +235,8 @@ async def export_reports(
         if data:
             headers = list(data[0].keys())
             ws.append(headers)
-            
-            
             for row in data:
-                ws.append(list(row.values()))
+                ws.append([sanitize_for_excel(v) if isinstance(v, str) else v for v in row.values()])
         
         output = io.BytesIO()
         wb.save(output)
@@ -623,8 +611,6 @@ async def update_report_feedback(
             detail=f"Cannot give feedback on report with status: {report.status}. Only Accepted or Rejected reports can receive feedback."
         )
     
-  
-    from app.utils.sanitizers import Sanitizers
     sanitized_feedback = Sanitizers.sanitize_text(request.feedback)
     
     if not sanitized_feedback:

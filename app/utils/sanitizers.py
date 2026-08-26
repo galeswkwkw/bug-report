@@ -127,7 +127,6 @@ class Sanitizers:
         if not emp_id:
             return emp_id
         
-        
         emp_id = re.sub(r'[^A-Za-z0-9\-]', '', emp_id)
         return emp_id.strip()
     
@@ -158,3 +157,12 @@ class Sanitizers:
         filename = re.sub(r'[^a-zA-Z0-9\.\-_]', '', filename)
         
         return filename
+
+def sanitize_for_excel(value):
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        return value
+    
+    illegal_chars = re.compile(r'[\x00\x0b\x0c\x0e-\x1f]')
+    return illegal_chars.sub('', value)
