@@ -1230,7 +1230,7 @@ async def create_report(
             detail=f"Asset with ID {request.asset_id} not found"
         )
     
-    severity = None  
+    severity = request.severity if request.severity else None  
     
     
     point = 0
