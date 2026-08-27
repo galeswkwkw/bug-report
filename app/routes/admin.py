@@ -13,6 +13,10 @@ from app.services.password_reset_service import PasswordResetService
 from app.services.email_service import EmailService
 import secrets
 import string
+import io
+import csv
+from openpyxl import Workbook
+from fastapi.responses import StreamingResponse
 
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
@@ -743,3 +747,86 @@ async def get_security_teams(
         "count": len(result),
         "data": result
     }
+
+@router.get("/bughunteruser/export")
+async def export_bug_hunter_users(
+    current_user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+    status: Optional[str] = None,
+    format: str = "xlsx"
+):
+    """
+    Export Bug Hunter users (role_id = 3) berdasarkan status.
+    
+    Query Parameters:
+    - status: Active / Pending / Rejected / semua (jika kosong)
+    - format: xlsx (default) atau csv
+    """
+   
+    query = db.query(User).filter(User.role_id == 3)
+   
+    if status:
+        query = query.filter(User.status == status)
+  
+    users = query.order_by(User.created_at.desc()).all()
+ 
+    data = []
+    for user in users:
+        department = db.query(Department).filter(Department.id == user.department_id).first()
+        role = db.query(Role).filter(Role.id == user.role_id).first()
+        
+        data.append({
+            "User ID": user.id,
+            "Full Name": user.full_name,
+            "Email": user.email,
+            "Phone Number": user.phone_number,
+            "Researcher Type": user.researcher_type,
+            "Employee ID": user.employee_id,
+            "Company": user.company,
+            "Department": department.name if department else None,
+            "Role": role.name if role else None,
+            "Total Point": user.total_point,
+            "Status": user.status,
+            "Created At": user.created_at.strftime("%Y-%m-%d %H:%M:%S") if user.created_at else None,
+            "Updated At": user.updated_at.strftime("%Y-%m-%d %H:%M:%S") if user.updated_at else None,
+        })
+    
+   
+    filename = f"bug_hunter_users_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    
+   
+    if format.lower() == "csv":
+        output = io.StringIO()
+        if data:
+            writer = csv.DictWriter(output, fieldnames=data[0].keys())
+            writer.writeheader()
+            writer.writerows(data)
+        else:
+            output.write("No data found")
+        
+        return StreamingResponse(
+            iter([output.getvalue()]),
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename={filename}.csv"}
+        )
+    
+    else: 
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Bug Hunter Users"
+        
+        if data:
+            headers = list(data[0].keys())
+            ws.append(headers)
+            for row in data:
+                ws.append(list(row.values()))
+        
+        output = io.BytesIO()
+        wb.save(output)
+        output.seek(0)
+        
+        return StreamingResponse(
+            output,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename={filename}.xlsx"}
+        )
