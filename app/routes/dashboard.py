@@ -183,8 +183,16 @@ async def get_admin_dashboard(
     Get dashboard statistics for Admin.
     """
     total_users = db.query(User).count()
-    total_researchers = db.query(User).filter(User.role_id == 3).count()
-    total_security_teams = db.query(User).filter(User.role_id == 2).count()
+    total_researchers = db.query(User).filter(
+        User.role_id == 3,
+        User.status == "Active"  
+    ).count()
+    
+    
+    total_security_teams = db.query(User).filter(
+        User.role_id == 2,
+        User.status == "Active"   
+    ).count()
     
     total_reports = db.query(Report).count()
     submitted_reports = db.query(Report).filter(Report.status == "Submitted").count()
