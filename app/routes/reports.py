@@ -11,7 +11,8 @@ from app.database import SessionLocal
 from app.models import Report, Asset, User, PointRule, ReportEvidence
 from app.schemas import (
     ReportCreateRequest, ReportResponse, ReportEvidenceResponse, 
-    ReportUpdateRequest, ReviewRequest, MultipleUploadResponse
+    ReportUpdateRequest, ReviewRequest, MultipleUploadResponse, ReportCommentCreateRequest, 
+    ReportCommentResponse, ReportCommentResponseWithUser
 )
 from app.auth import get_current_active_user, get_current_admin
 from app.auth import get_current_active_user
