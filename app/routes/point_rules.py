@@ -25,18 +25,28 @@ async def get_point_rules(
     db: Session = Depends(get_db)
 ):
     """
-    Get all point rules (All authenticated users).
-    """
-
-    # role = db.query(Role).filter(Role.id == current_user.role_id).first()
-    # if role.name not in ["Admin", "Security Team"]:
-    #     raise HTTPException(...)
+    Get all point rules.
     
+    🔒 Authorization:
+    - Admin: dapat semua field (severity, point, description, is_active, id)
+    - Security Team: dapat semua field (sama seperti admin)
+    - Bug Hunter: hanya severity, point, description
+    """
+    
+   
     point_rules = db.query(PointRule).order_by(PointRule.point.desc()).all()
     
-    return {
-        "success": True,
-        "data": [
+    
+    role_name = None
+    if current_user.role_id in [1, 2]: 
+        role_name = "admin_or_security"
+    elif current_user.role_id == 3:
+        role_name = "bug_hunter"
+    
+    
+    if role_name == "admin_or_security":
+       
+        data = [
             {
                 "id": rule.id,
                 "severity": rule.severity,
@@ -46,6 +56,20 @@ async def get_point_rules(
             }
             for rule in point_rules
         ]
+    else:
+       
+        data = [
+            {
+                "severity": rule.severity,
+                "point": rule.point,
+                "description": rule.description if hasattr(rule, 'description') else None
+            }
+            for rule in point_rules
+        ]
+    
+    return {
+        "success": True,
+        "data": data
     }
 
 
