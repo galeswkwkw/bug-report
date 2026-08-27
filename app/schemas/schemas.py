@@ -185,6 +185,7 @@ class ReportCreateRequest(BaseModel):
     steps_to_resolve: Optional[str] = None
     impact: Optional[str] = None
     affected_endpoint: Optional[str] = Field(None, max_length=500) 
+    severity: Optional[str] = None
 
 class ReportResponse(BaseModel):
     id: int
