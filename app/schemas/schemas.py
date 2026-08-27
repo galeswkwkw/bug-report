@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, Field, validator
+from pydantic import BaseModel, EmailStr, Field, validator, field_validator
 from typing import Optional, List
 from datetime import datetime
 from fastapi import File, UploadFile
@@ -178,14 +178,32 @@ class AssetResponse(BaseModel):
 
 class ReportCreateRequest(BaseModel):
     asset_id: int
-    title: str = Field(..., min_length=1, max_length=255)
-    category: str = Field(..., min_length=1, max_length=100)
-    description: str = Field(..., min_length=1)
-    steps_to_reproduce: str = Field(..., min_length=1)
+    title: str
+    category: str
+    description: str
+    steps_to_reproduce: Optional[str] = None
     steps_to_resolve: Optional[str] = None
     impact: Optional[str] = None
-    affected_endpoint: Optional[str] = Field(None, max_length=500) 
+    affected_endpoint: Optional[str] = None
     severity: Optional[str] = None
+    
+    @field_validator('affected_endpoint')
+    def validate_affected_endpoint(cls, v):
+        if v is None or v == '':
+            return v
+        
+        import re
+        pattern = r'^(GET|POST|PUT|DELETE|PATCH)\s+\/[a-zA-Z0-9_\-\/\?\=\&]+$'
+        
+        if not re.match(pattern, v):
+            raise ValueError(
+                'Format affected_endpoint tidak valid. '
+                'Harus diawali method HTTP (GET/POST/PUT/DELETE/PATCH), '
+                'diikuti spasi dan path yang diawali "/", '
+                'tanpa http://, https://, atau nama domain.'
+            )
+        
+        return v
 
 class ReportResponse(BaseModel):
     id: int
