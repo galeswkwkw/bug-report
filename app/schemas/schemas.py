@@ -299,3 +299,18 @@ class ReportUpdateByResearcherRequest(BaseModel):
 class ReportFeedbackRequest(BaseModel):
     """Request untuk memberikan feedback pada report"""
     feedback: str = Field(..., min_length=1, max_length=1000, description="Feedback content")
+
+class ReportCommentCreateRequest(BaseModel):
+    comment: str
+
+class ReportCommentResponse(BaseModel):
+    id: int
+    report_id: int
+    user_id: int
+    comment: str
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+class ReportCommentResponseWithUser(ReportCommentResponse):
+    user_name: Optional[str] = None
+    role_name: Optional[str] = None

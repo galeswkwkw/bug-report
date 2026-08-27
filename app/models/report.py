@@ -1,4 +1,4 @@
-from sqlalchemy import Column, BigInteger, String, Text, Integer, TIMESTAMP, ForeignKey, CheckConstraint
+from sqlalchemy import Column, BigInteger, String, Text, Integer, TIMESTAMP, ForeignKey, CheckConstraint, TIMESTAMP
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.database import Base
@@ -43,6 +43,7 @@ class Report(Base):
     reviewer = relationship("User", foreign_keys=[reviewer_id])
     assigned = relationship("User", foreign_keys=[assigned_to])
     evidences = relationship("ReportEvidence", back_populates="report", cascade="all, delete-orphan")
+    comments = relationship("ReportComment", back_populates="report", cascade="all, delete-orphan")
     
     __table_args__ = (
         CheckConstraint("status IN ('Submitted', 'Assigned', 'In Review', 'Accepted', 'Rejected')"),

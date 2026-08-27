@@ -10,6 +10,7 @@ from app.models.report_evidence import ReportEvidence
 from app.models.notification import Notification
 from app.models.password_reset_token import PasswordResetToken  
 from app.models.user_session import UserSession
+from app.models.report_comment import ReportComment
 
 __all__ = [
     "Role",
@@ -23,5 +24,6 @@ __all__ = [
     "ReportEvidence",
     "Notification",
     "PasswordResetToken",
-    "UserSession"  
+    "UserSession",  
+    "ReportComment"  
 ]
