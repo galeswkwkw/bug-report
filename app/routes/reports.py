@@ -1523,6 +1523,61 @@ async def upload_evidence(
     )
 
 
+    
+@router.get("/{report_id}/comments", response_model=list[ReportCommentResponseWithUser])
+async def get_report_comments(
+    report_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get all comments for a report.
+    
+    🔒 Authorization:
+    - Bug Hunter (role_id=3): HANYA bisa melihat komentar pada report miliknya sendiri
+    - Security Team (role_id=2): bisa melihat semua komentar
+    - Admin (role_id=1): TIDAK BISA akses comment
+    """
+    report = db.query(Report).filter(Report.id == report_id).first()
+    if not report:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Report with ID {report_id} not found"
+        )
+    
+    # ✅ Cek akses: Hanya Security Team (role_id=2) atau Owner (Bug Hunter)
+    is_security = current_user.role_id == 2
+    is_owner = report.user_id == current_user.id
+    
+    # ❌ TOLAK akses jika BUKAN security DAN BUKAN owner
+    if not is_security and not is_owner:
+        raise HTTPException(
+            status_code=403,
+            detail="You are not authorized to view comments for this report"
+        )
+    
+    comments = db.query(ReportComment).filter(
+        ReportComment.report_id == report_id
+    ).order_by(ReportComment.created_at.asc()).all()
+    
+    result = []
+    for comment in comments:
+        user = db.query(User).filter(User.id == comment.user_id).first()
+        role = db.query(Role).filter(Role.id == user.role_id).first() if user else None
+        
+        result.append(ReportCommentResponseWithUser(
+            id=comment.id,
+            report_id=comment.report_id,
+            user_id=comment.user_id,
+            comment=comment.comment,
+            created_at=comment.created_at,
+            updated_at=comment.updated_at,
+            user_name=user.full_name if user else None,
+            role_name=role.name if role else None
+        ))
+    
+    return result
+
 
 @router.post("/{report_id}/comments", response_model=ReportCommentResponse)
 async def create_report_comment(
@@ -1550,11 +1605,11 @@ async def create_report_comment(
             detail=f"Report with ID {report_id} not found"
         )
     
-    
+    # ✅ Cek akses: Hanya Security Team (role_id=2) atau Owner (Bug Hunter)
     is_security = current_user.role_id == 2
     is_owner = (current_user.role_id == 3 and report.user_id == current_user.id)
     
-    
+    # ❌ TOLAK akses jika BUKAN security DAN BUKAN owner
     if not is_security and not is_owner:
         raise HTTPException(
             status_code=403,
@@ -1594,97 +1649,7 @@ async def create_report_comment(
             detail=f"Failed to create comment: {str(e)}"
         )
     
-    
-    NotificationService.create_comment_notification(
-        db=db,
-        report_id=report_id,
-        report_title=report.title,
-        comment=sanitized_comment,
-        commenter_name=current_user.full_name,
-        commenter_role_id=current_user.role_id,
-        report_owner_id=report.user_id
-    )
-    
-    return ReportCommentResponse(
-        id=new_comment.id,
-        report_id=new_comment.report_id,
-        user_id=new_comment.user_id,
-        comment=new_comment.comment,
-        created_at=new_comment.created_at,
-        updated_at=new_comment.updated_at
-    )
-
-@router.post("/{report_id}/comments", response_model=ReportCommentResponse)
-async def create_report_comment(
-    report_id: int,
-    request: ReportCommentCreateRequest,
-    current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Create a new comment on a report.
-    
-    🔒 Authorization:
-    - Bug Hunter (role_id=3): HANYA bisa comment pada report miliknya SENDIRI
-    - Security Team (role_id=2): bisa comment pada semua report
-    - Admin (role_id=1): TIDAK BISA comment
-    
-    📨 Notification:
-    - Bug Hunter comment → notify ALL Security Team
-    - Security Team comment → notify Bug Hunter (owner)
-    """
-    report = db.query(Report).filter(Report.id == report_id).first()
-    if not report:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Report with ID {report_id} not found"
-        )
-    
-    
-    is_security = current_user.role_id == 2
-    is_owner = (current_user.role_id == 3 and report.user_id == current_user.id)
-    
-    
-    if not is_security and not is_owner:
-        raise HTTPException(
-            status_code=403,
-            detail="You are not authorized to comment on this report"
-        )
-    
-    if not request.comment or not request.comment.strip():
-        raise HTTPException(
-            status_code=400,
-            detail="Comment cannot be empty"
-        )
-    
-    from app.utils.sanitizers import Sanitizers
-    sanitized_comment = Sanitizers.sanitize_text(request.comment)
-    
-    if not sanitized_comment:
-        raise HTTPException(
-            status_code=400,
-            detail="Comment cannot be empty"
-        )
-    
-    new_comment = ReportComment(
-        report_id=report_id,
-        user_id=current_user.id,
-        comment=sanitized_comment
-    )
-    
-    db.add(new_comment)
-    
-    try:
-        db.commit()
-        db.refresh(new_comment)
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to create comment: {str(e)}"
-        )
-    
-    
+    # ✅ Kirim notifikasi berdasarkan role commenter
     NotificationService.create_comment_notification(
         db=db,
         report_id=report_id,
