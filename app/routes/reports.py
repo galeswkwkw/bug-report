@@ -8,7 +8,7 @@ import os
 from typing import List
 
 from app.database import SessionLocal
-from app.models import Report, Asset, User, PointRule, ReportEvidence
+from app.models import Report, Asset, User, PointRule, ReportEvidence, ReportComment, Role
 from app.schemas import (
     ReportCreateRequest, ReportResponse, ReportEvidenceResponse, 
     ReportUpdateRequest, ReviewRequest, MultipleUploadResponse, ReportCommentCreateRequest, 
