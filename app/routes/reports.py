@@ -1543,7 +1543,7 @@ async def get_report_comments(
         )
     
     
-    is_admin = current_user.role_id in [1, 2]  
+    is_admin = current_user.role_id in [2]  
     is_owner = report.user_id == current_user.id
     
     if not is_admin and not is_owner:
@@ -1596,7 +1596,7 @@ async def create_report_comment(
         )
     
    
-    is_admin = current_user.role_id in [1, 2] 
+    is_admin = current_user.role_id in [2] 
     is_owner = report.user_id == current_user.id
     
     if not is_admin and not is_owner:
