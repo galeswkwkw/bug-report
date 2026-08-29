@@ -142,3 +142,56 @@ class NotificationService:
         
         db.add(notification)
         db.commit()
+    
+    @staticmethod
+    def create_comment_notification(
+        db: Session,
+        report_id: int,
+        report_title: str,
+        comment: str,
+        commenter_name: str,
+        commenter_role_id: int,
+        report_owner_id: int
+    ):
+        """
+        Create notification when a comment is posted.
+        
+        - If Bug Hunter posts a comment → notify ALL Security Team (role_id=2)
+        - If Security Team posts a comment → notify the Bug Hunter (report owner)
+        - Admin: TIDAK dapat notifikasi (karena tidak bisa comment)
+        """
+        
+        comment_preview = comment[:100] + "..." if len(comment) > 100 else comment
+        
+        
+        if commenter_role_id == 3:
+            
+            security_team = db.query(User).filter(User.role_id == 2).all()
+            
+            for security in security_team:
+                notification = Notification(
+                    user_id=security.id,
+                    title=f"💬 New Comment from {commenter_name}",
+                    message=f"Bug Hunter '{commenter_name}' added a comment on report '{report_title}':\n\n{comment_preview}",
+                    type="comment",
+                    reference_id=report_id,
+                    is_read=False,
+                    created_at=datetime.now()
+                )
+                db.add(notification)
+            
+            db.commit()
+        
+        
+        elif commenter_role_id == 2:
+            notification = Notification(
+                user_id=report_owner_id,
+                title=f"💬 New Comment from Security Team",
+                message=f"Security Team member '{commenter_name}' added a comment on your report '{report_title}':\n\n{comment_preview}",
+                type="comment",
+                reference_id=report_id,
+                is_read=False,
+                created_at=datetime.now()
+            )
+            db.add(notification)
+            db.commit()
