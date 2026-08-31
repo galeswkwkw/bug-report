@@ -34,7 +34,7 @@ async def get_point_rules(
     """
     
     
-    is_admin_or_security = current_user.role_id in [1, 2]  # Admin atau Security Team
+    is_admin_or_security = current_user.role_id in [1, 2]  
     is_bug_hunter = current_user.role_id == 3
     
     if is_admin_or_security:
