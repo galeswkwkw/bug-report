@@ -30,22 +30,17 @@ async def get_point_rules(
     🔒 Authorization:
     - Admin: dapat semua field (severity, point, description, is_active, id)
     - Security Team: dapat semua field (sama seperti admin)
-    - Bug Hunter: hanya severity, point, description
+    - Bug Hunter: HANYA menampilkan data yang is_active = True (severity, point, description)
     """
     
-   
-    point_rules = db.query(PointRule).order_by(PointRule.point.desc()).all()
     
+    is_admin_or_security = current_user.role_id in [1, 2]  # Admin atau Security Team
+    is_bug_hunter = current_user.role_id == 3
     
-    role_name = None
-    if current_user.role_id in [1, 2]: 
-        role_name = "admin_or_security"
-    elif current_user.role_id == 3:
-        role_name = "bug_hunter"
-    
-    
-    if role_name == "admin_or_security":
-       
+    if is_admin_or_security:
+        
+        point_rules = db.query(PointRule).order_by(PointRule.point.desc()).all()
+        
         data = [
             {
                 "id": rule.id,
@@ -56,8 +51,29 @@ async def get_point_rules(
             }
             for rule in point_rules
         ]
+    
+    elif is_bug_hunter:
+        
+        point_rules = db.query(PointRule).filter(
+            PointRule.is_active == True 
+        ).order_by(PointRule.point.desc()).all()
+        
+        data = [
+            {
+                "severity": rule.severity,
+                "point": rule.point,
+                "description": rule.description if hasattr(rule, 'description') else None,
+                "is_active": rule.is_active
+            }
+            for rule in point_rules
+        ]
+    
     else:
-       
+        
+        point_rules = db.query(PointRule).filter(
+            PointRule.is_active == True
+        ).order_by(PointRule.point.desc()).all()
+        
         data = [
             {
                 "severity": rule.severity,
