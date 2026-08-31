@@ -1545,11 +1545,11 @@ async def get_report_comments(
             detail=f"Report with ID {report_id} not found"
         )
     
-    # ✅ Cek akses: Hanya Security Team (role_id=2) atau Owner (Bug Hunter)
+    
     is_security = current_user.role_id == 2
     is_owner = report.user_id == current_user.id
     
-    # ❌ TOLAK akses jika BUKAN security DAN BUKAN owner
+    
     if not is_security and not is_owner:
         raise HTTPException(
             status_code=403,
@@ -1605,11 +1605,11 @@ async def create_report_comment(
             detail=f"Report with ID {report_id} not found"
         )
     
-    # ✅ Cek akses: Hanya Security Team (role_id=2) atau Owner (Bug Hunter)
+    
     is_security = current_user.role_id == 2
     is_owner = (current_user.role_id == 3 and report.user_id == current_user.id)
     
-    # ❌ TOLAK akses jika BUKAN security DAN BUKAN owner
+    
     if not is_security and not is_owner:
         raise HTTPException(
             status_code=403,
@@ -1649,7 +1649,7 @@ async def create_report_comment(
             detail=f"Failed to create comment: {str(e)}"
         )
     
-    # ✅ Kirim notifikasi berdasarkan role commenter
+    
     NotificationService.create_comment_notification(
         db=db,
         report_id=report_id,

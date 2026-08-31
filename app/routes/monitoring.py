@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func, extract
 from datetime import datetime, timedelta
+from dateutil.relativedelta import relativedelta  
 from app.database import SessionLocal
 from app.models import Report, User, Asset, PointRule  
 from app.auth import get_current_admin
@@ -25,32 +26,35 @@ async def get_monitoring(
     🔒 ADMIN ONLY
     """
     
-  
+    
     monthly_trend = []
     current_date = datetime.now()
     
     for i in range(5, -1, -1):
-        month_date = current_date - timedelta(days=30 * i)
+        
+        month_date = current_date - relativedelta(months=i)
         month_name = month_date.strftime("%B")
+        month_year = month_date.year
+        month_number = month_date.month
         
         total_reports = db.query(Report).filter(
-            extract('month', Report.created_at) == month_date.month,
-            extract('year', Report.created_at) == month_date.year
+            extract('month', Report.created_at) == month_number,
+            extract('year', Report.created_at) == month_year
         ).count()
         
         valid_reports = db.query(Report).filter(
-            extract('month', Report.created_at) == month_date.month,
-            extract('year', Report.created_at) == month_date.year,
+            extract('month', Report.created_at) == month_number,
+            extract('year', Report.created_at) == month_year,
             Report.status == "Accepted"
         ).count()
         
         monthly_trend.append({
-            "month": month_name,
+            "month": f"{month_name} {month_year}",  
             "total_reports": total_reports,
             "valid_reports": valid_reports
         })
     
-  
+    
     security_teams = db.query(User).filter(User.role_id == 2).all()
     security_team_performance = []
     for team in security_teams:
@@ -71,7 +75,7 @@ async def get_monitoring(
             "in_review_reports": in_review
         })
     
-  
+    
     top_assets = db.query(
         Asset.id,
         Asset.name,
@@ -84,14 +88,18 @@ async def get_monitoring(
         func.count(Report.id).desc()
     ).limit(10).all()
     
+    
+    seen_assets = set()
     top_assets_data = []
     for asset in top_assets:
-        top_assets_data.append({
-            "asset_name": asset.name,
-            "total_reports": asset.total_reports
-        })
+        if asset.name not in seen_assets:
+            seen_assets.add(asset.name)
+            top_assets_data.append({
+                "asset_name": asset.name,
+                "total_reports": asset.total_reports
+            })
     
-  
+    
     active_severities = db.query(PointRule.severity).filter(
         PointRule.is_active == True
     ).all()
@@ -109,16 +117,14 @@ async def get_monitoring(
     ).group_by(Report.severity).all()
 
     for stat in severity_stats:
-        key = stat.severity.lower()
-        if key in severity_distribution:
-            severity_distribution[key] = stat.total
-
-   
-   
-   
+        if stat.severity:
+            key = stat.severity.lower()
+            if key in severity_distribution:
+                severity_distribution[key] = stat.total
+    
+    
     total_rejected = db.query(Report).filter(Report.status == "Rejected").count()
 
-    
     return {
         "success": True,
         "data": {
