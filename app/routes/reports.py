@@ -1540,7 +1540,7 @@ async def get_report_comments(
     🔒 Authorization:
     - Bug Hunter (role_id=3): HANYA bisa melihat komentar pada report miliknya sendiri
     - Security Team (role_id=2): bisa melihat semua komentar
-    - Admin (role_id=1): TIDAK BISA akses comment
+    - Admin (role_id=1): BISA melihat semua komentar ✅
     """
     report = db.query(Report).filter(Report.id == report_id).first()
     if not report:
@@ -1550,11 +1550,12 @@ async def get_report_comments(
         )
     
     
+    is_admin = current_user.role_id == 1
     is_security = current_user.role_id == 2
-    is_owner = report.user_id == current_user.id
+    is_owner = (current_user.role_id == 3 and report.user_id == current_user.id)
     
     
-    if not is_security and not is_owner:
+    if not is_admin and not is_security and not is_owner:
         raise HTTPException(
             status_code=403,
             detail="You are not authorized to view comments for this report"
