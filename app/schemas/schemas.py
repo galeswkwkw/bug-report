@@ -2,6 +2,7 @@ from pydantic import BaseModel, EmailStr, Field, validator, field_validator
 from typing import Optional, List
 from datetime import datetime
 from fastapi import File, UploadFile
+import re
 
 # AUTH SCHEMAS
 class ForgotPasswordRequest(BaseModel):
@@ -287,6 +288,7 @@ class AssignReportRequest(BaseModel):
     comment: Optional[str] = None  
 
 class ReportUpdateByResearcherRequest(BaseModel):
+    """Request untuk update report oleh Researcher"""
     title: Optional[str] = None
     category: Optional[str] = None
     description: Optional[str] = None
@@ -295,6 +297,17 @@ class ReportUpdateByResearcherRequest(BaseModel):
     impact: Optional[str] = None
     affected_endpoint: Optional[str] = None 
     severity: Optional[str] = Field(None, pattern="^(Critical\-|Critical|High|High\-|Medium|Low)$")
+    
+    @validator('affected_endpoint')
+    def validate_affected_endpoint(cls, v):
+        if v is None or v == "":
+            return v
+        pattern = r'^(GET|POST|PUT|DELETE|PATCH)\s+\/[a-zA-Z0-9_\-\/\?\=\&]+$'
+        if not re.match(pattern, v):
+            raise ValueError(
+                "Format affected_endpoint harus: METHOD /path. Contoh: POST /api/v1/auth/login"
+            )
+        return v
 
 class ReportFeedbackRequest(BaseModel):
     """Request untuk memberikan feedback pada report"""

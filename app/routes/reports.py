@@ -935,8 +935,11 @@ async def update_report_by_researcher(
         report.steps_to_resolve = request.steps_to_resolve
     if request.impact is not None:
         report.impact = request.impact
-    if request.affected_endpoint is not None:  
-        report.affected_endpoint = request.affected_endpoint    
+    if request.affected_endpoint is not None:
+        report.affected_endpoint = request.affected_endpoint
+    if request.severity is not None:
+        report.severity = request.severity
+    
     report.updated_at = datetime.now()
     
     try:
@@ -954,7 +957,8 @@ async def update_report_by_researcher(
         "message": "Report updated successfully.",
         "report_id": report.id,
         "updated_at": report.updated_at,
-        "affected_endpoint": report.affected_endpoint  
+        "severity": report.severity,
+        "affected_endpoint": report.affected_endpoint
     }
 
 # PUT /reports/{id} - UPDATE REPORT STATUS (ADMIN ONLY)
