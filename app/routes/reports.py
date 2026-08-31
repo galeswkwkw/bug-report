@@ -1662,7 +1662,8 @@ async def create_report_comment(
         comment=sanitized_comment,
         commenter_name=current_user.full_name,
         commenter_role_id=current_user.role_id,
-        report_owner_id=report.user_id
+        report_owner_id=report.user_id,
+        reviewer_id=report.reviewer_id
     )
     
     return ReportCommentResponse(
