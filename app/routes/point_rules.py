@@ -62,7 +62,7 @@ async def get_point_rules(
             {
                 "severity": rule.severity,
                 "point": rule.point,
-                "description": rule.description if hasattr(rule, 'description') else None
+                "description": rule.description if hasattr(rule, 'description') else None,
                 "is_active": rule.is_active
             }
             for rule in point_rules
