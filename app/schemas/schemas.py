@@ -186,24 +186,32 @@ class ReportCreateRequest(BaseModel):
     steps_to_resolve: Optional[str] = None
     impact: Optional[str] = None
     affected_endpoint: Optional[str] = None
-    severity: Optional[str] = None
+    severity: Optional[str] = Field(None, pattern="^(Critical\-|Critical|High|High\-|Medium|Low)$")
     
-    @field_validator('affected_endpoint')
+    @validator('affected_endpoint')
     def validate_affected_endpoint(cls, v):
-        if v is None or v == '':
+        if v is None or v == "":
             return v
         
-        import re
-        pattern = r'^(GET|POST|PUT|DELETE|PATCH)\s+\/[a-zA-Z0-9_\-\/\?\=\&]+$'
+        pattern_method_path = r'^(GET|POST|PUT|DELETE|PATCH)\s+\/[a-zA-Z0-9_\-\/\?\=\&]+$'
+        pattern_method_url = r'^(GET|POST|PUT|DELETE|PATCH)\s+https?:\/\/[a-zA-Z0-9\-\.]+\.[a-zA-Z]{2,}(\/[a-zA-Z0-9_\-\/\?\=\&]*)?$'
+        pattern_url_only = r'^https?:\/\/[a-zA-Z0-9\-\.]+\.[a-zA-Z]{2,}(\/[a-zA-Z0-9_\-\/\?\=\&]*)?$'
         
-        if not re.match(pattern, v):
-            raise ValueError(
-                'Invalid affected_endpoint format. '
-                'It must start with an HTTP method (GET/POST/PUT/DELETE/PATCH), '
-                'followed by a space and a path starting with "/", '
-                'without http://, https://, or a domain name.'
-            )
+        if re.match(pattern_method_path, v):
+            return v
         
+        if re.match(pattern_method_url, v):
+            return v
+        
+        if re.match(pattern_url_only, v):
+            return v
+        
+        raise ValueError(
+            "Invalid affected_endpoint format. Must be one of: "
+            "1. METHOD /path (e.g., POST /api/v1/auth/login), "
+            "2. METHOD https://domain.com/path (e.g., POST https://example.com/api/login), "
+            "or 3. https://domain.com/path (e.g., https://example.com/api/login)"
+        )
         return v
 
 class ReportResponse(BaseModel):
@@ -302,13 +310,15 @@ class ReportUpdateByResearcherRequest(BaseModel):
     def validate_affected_endpoint(cls, v):
         if v is None or v == "":
             return v
-        pattern = r'^(GET|POST|PUT|DELETE|PATCH)\s+\/[a-zA-Z0-9_\-\/\?\=\&]+$'
+        
+        pattern = r'^(?:(GET|POST|PUT|DELETE|PATCH)\s+)?(https?:\/\/[a-zA-Z0-9\-\.]+\.[a-zA-Z]{2,}(?:\/[a-zA-Z0-9_\-\/\?\=\&]*)?|\/[a-zA-Z0-9_\-\/\?\=\&]+)$'
+        
         if not re.match(pattern, v):
             raise ValueError(
-                'Invalid affected_endpoint format. '
-                'It must start with an HTTP method (GET/POST/PUT/DELETE/PATCH), '
-                'followed by a space and a path starting with "/", '
-                'without http://, https://, or a domain name.'
+                "Invalid affected_endpoint format. Must be one of: "
+                "1. METHOD /path (e.g., POST /api/v1/auth/login), "
+                "2. METHOD https://domain.com/path (e.g., POST https://example.com/api/login), "
+                "or 3. https://domain.com/path (e.g., https://example.com/api/login)"
             )
         return v
 
