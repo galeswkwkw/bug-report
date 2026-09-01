@@ -194,8 +194,10 @@ class ReportCreateRequest(BaseModel):
             return v
         
         pattern_method_path = r'^(GET|POST|PUT|DELETE|PATCH)\s+\/[a-zA-Z0-9_\-\/\?\=\&]+$'
-        pattern_method_url = r'^(GET|POST|PUT|DELETE|PATCH)\s+https?:\/\/[a-zA-Z0-9\-\.]+\.[a-zA-Z]{2,}(\/[a-zA-Z0-9_\-\/\?\=\&]*)?$'
-        pattern_url_only = r'^https?:\/\/[a-zA-Z0-9\-\.]+\.[a-zA-Z]{2,}(\/[a-zA-Z0-9_\-\/\?\=\&]*)?$'
+        
+        pattern_method_url = r'^(GET|POST|PUT|DELETE|PATCH)\s+https?:\/\/[a-zA-Z0-9\-\.]+\.[a-zA-Z]{2,}(:\d+)?(\/[a-zA-Z0-9_\-\/\?\=\&]*)?$'
+        
+        pattern_url_only = r'^https?:\/\/[a-zA-Z0-9\-\.]+\.[a-zA-Z]{2,}(:\d+)?(\/[a-zA-Z0-9_\-\/\?\=\&]*)?$'
         
         if re.match(pattern_method_path, v):
             return v
@@ -209,8 +211,8 @@ class ReportCreateRequest(BaseModel):
         raise ValueError(
             "Invalid affected_endpoint format. Must be one of: "
             "1. METHOD /path (e.g., POST /api/v1/auth/login), "
-            "2. METHOD https://domain.com/path (e.g., POST https://example.com/api/login), "
-            "or 3. https://domain.com/path (e.g., https://example.com/api/login)"
+            "2. METHOD https://domain.com:port/path (e.g., POST https://example.com:8443/api/login), "
+            "or 3. https://domain.com:port/path (e.g., https://example.com:8443/api/login)"
         )
         return v
 
@@ -311,14 +313,14 @@ class ReportUpdateByResearcherRequest(BaseModel):
         if v is None or v == "":
             return v
         
-        pattern = r'^(?:(GET|POST|PUT|DELETE|PATCH)\s+)?(https?:\/\/[a-zA-Z0-9\-\.]+\.[a-zA-Z]{2,}(?:\/[a-zA-Z0-9_\-\/\?\=\&]*)?|\/[a-zA-Z0-9_\-\/\?\=\&]+)$'
+        pattern = r'^(?:(GET|POST|PUT|DELETE|PATCH)\s+)?(https?:\/\/[a-zA-Z0-9\-\.]+\.[a-zA-Z]{2,}(:\d+)?(?:\/[a-zA-Z0-9_\-\/\?\=\&]*)?|\/[a-zA-Z0-9_\-\/\?\=\&]+)$'
         
         if not re.match(pattern, v):
             raise ValueError(
                 "Invalid affected_endpoint format. Must be one of: "
                 "1. METHOD /path (e.g., POST /api/v1/auth/login), "
-                "2. METHOD https://domain.com/path (e.g., POST https://example.com/api/login), "
-                "or 3. https://domain.com/path (e.g., https://example.com/api/login)"
+                "2. METHOD https://domain.com:port/path (e.g., POST https://example.com:8443/api/login), "
+                "or 3. https://domain.com:port/path (e.g., https://example.com:8443/api/login)"
             )
         return v
 
