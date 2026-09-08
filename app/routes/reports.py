@@ -5,6 +5,7 @@ from sqlalchemy.exc import IntegrityError
 from datetime import datetime
 import uuid
 import os
+import mimetypes
 from typing import List
 
 from app.database import SessionLocal
@@ -51,10 +52,7 @@ def get_current_admin_or_security(current_user: User = Depends(get_current_activ
 
 def check_report_access(report: Report, current_user: User) -> bool:
     """
-    Cek apakah user memiliki akses ke report.
-    - Admin: selalu bisa
-    - Security Team: selalu bisa
-    - Bug Hunter: hanya report sendiri
+    
     """
     if current_user.role_id in [1, 2]: \
         return True
@@ -68,6 +66,17 @@ def check_report_access_or_403(report: Report, current_user: User):
             status_code=403,
             detail="You are not authorized to view this report"
         )
+
+def get_file_extension(filename: str) -> str:
+    """
+    Contoh: .tar.gz, .tar.bz2, .tar.xz
+    """
+    multi_extensions = ['.tar.gz', '.tar.bz2', '.tar.xz']
+    for multi_ext in multi_extensions:
+        if filename.endswith(multi_ext):
+            return multi_ext
+    
+    return os.path.splitext(filename)[1].lower()
 
 # GET /reports - GET ALL REPORTS
 @router.get("", response_model=list[ReportResponse])
@@ -821,7 +830,7 @@ async def update_evidence(
     else:
         allowed_extensions = getattr(Config, 'ALLOWED_RESULT_EXTENSIONS', [".pdf", ".csv", ".jpg", ".png", ".mp4", ".tar.gz"])
     
-    ext = os.path.splitext(file.filename)[1].lower()
+    ext = get_file_extension(file.filename)
     if ext not in allowed_extensions:
         raise HTTPException(
             status_code=400,
@@ -1388,7 +1397,7 @@ async def upload_evidence(
             continue
         
         
-        ext = os.path.splitext(file.filename)[1].lower()
+        ext = get_file_extension(file.filename)
         if ext not in allowed_extensions:
             errors.append({
                 "index": idx,
