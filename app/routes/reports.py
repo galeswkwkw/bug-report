@@ -7,6 +7,10 @@ import uuid
 import os
 import mimetypes
 from typing import List
+import io
+import csv
+from openpyxl import Workbook
+from fastapi.responses import StreamingResponse
 
 from app.database import SessionLocal
 from app.models import Report, Asset, User, PointRule, ReportEvidence, ReportComment, Role
@@ -150,7 +154,6 @@ async def get_reports(
         ))
     
     return result
-
 @router.get("/export")
 async def export_reports(
     current_user: User = Depends(get_current_admin),
@@ -159,12 +162,22 @@ async def export_reports(
     severity: Optional[str] = None,
     search: Optional[str] = None,
     asset_id: Optional[int] = None,
+    start_date: Optional[str] = None, 
+    end_date: Optional[str] = None,    
     format: str = "xlsx"
 ):
-    import io
-    import csv
-    from openpyxl import Workbook
-    from fastapi.responses import StreamingResponse
+    """
+    Export reports based on filters (Admin only).
+    
+    Query Parameters:
+    - status: Submitted, Assigned, In Review, Accepted, Rejected
+    - severity: Critical, High, Medium, Low
+    - search: search by title or description
+    - asset_id: filter by asset ID
+    - start_date: filter by created_at >= start_date (format: YYYY-MM-DD)
+    - end_date: filter by created_at <= end_date (format: YYYY-MM-DD)
+    - format: xlsx (default) atau csv
+    """
     
     query = db.query(Report)
     
@@ -194,6 +207,27 @@ async def export_reports(
     if asset_id:
         query = query.filter(Report.asset_id == asset_id)
     
+    if start_date:
+        try:
+            start = datetime.strptime(start_date, "%Y-%m-%d")
+            query = query.filter(Report.created_at >= start)
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid start_date format. Use YYYY-MM-DD"
+            )
+    
+    if end_date:
+        try:
+            end = datetime.strptime(end_date, "%Y-%m-%d")
+            end = end.replace(hour=23, minute=59, second=59)
+            query = query.filter(Report.created_at <= end)
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid end_date format. Use YYYY-MM-DD"
+            )
+    
     reports = query.order_by(Report.created_at.desc()).all()
     
     data = []
@@ -201,22 +235,28 @@ async def export_reports(
         user = db.query(User).filter(User.id == report.user_id).first()
         asset = db.query(Asset).filter(Asset.id == report.asset_id).first()
         reviewer = db.query(User).filter(User.id == report.reviewer_id).first() if report.reviewer_id else None
+        assigned_to_user = db.query(User).filter(User.id == report.assigned_to).first() if report.assigned_to else None
         
         data.append({
-            "Report ID": report.id,
-            "Title": sanitize_for_excel(report.title),
-            "Researcher Name": sanitize_for_excel(user.full_name if user else None),
-            "Asset Name": sanitize_for_excel(asset.name if asset else None),
-            "Category": sanitize_for_excel(report.category),
-            "Affected Endpoint": sanitize_for_excel(report.affected_endpoint),
-            "Description": sanitize_for_excel(report.description),
-            "Severity": sanitize_for_excel(report.severity),
-            "Point": report.point,
-            "Status": sanitize_for_excel(report.status),
-            "Reviewer": sanitize_for_excel(reviewer.full_name if reviewer else None),
-            "Review Comment": sanitize_for_excel(report.review_comment),
-            "Submitted At": report.created_at.strftime("%Y-%m-%d %H:%M:%S") if report.created_at else None,
-            "Reviewed At": report.reviewed_at.strftime("%Y-%m-%d %H:%M:%S") if report.reviewed_at else None,
+            "id": report.id,
+            "title": sanitize_for_excel(report.title),
+            "user_id": report.user_id,  
+            "asset_name": sanitize_for_excel(asset.name if asset else None),
+            "category": sanitize_for_excel(report.category),
+            "severity": sanitize_for_excel(report.severity),
+            "status": sanitize_for_excel(report.status),
+            "created_at": report.created_at.strftime("%Y-%m-%d %H:%M:%S") if report.created_at else None,
+            "reviewed_at": report.reviewed_at.strftime("%Y-%m-%d %H:%M:%S") if report.reviewed_at else None,
+            "assigned_to": report.assigned_to,  
+            "description": sanitize_for_excel(report.description),
+            "steps_to_reproduce": sanitize_for_excel(report.steps_to_reproduce),
+            "steps_to_resolve": sanitize_for_excel(report.steps_to_resolve),
+            "impact": sanitize_for_excel(report.impact),
+            "affected_endpoint": sanitize_for_excel(report.affected_endpoint),
+            "accepted_at": report.accepted_at.strftime("%Y-%m-%d %H:%M:%S") if report.accepted_at else None,
+            "review_comment": sanitize_for_excel(report.review_comment),
+            "feedback": sanitize_for_excel(report.feedback),
+            "point": report.point
         })
     
     filename = f"reports_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
@@ -843,9 +883,9 @@ async def update_evidence(
             evidence.bucket_name,
             evidence.object_name
         )
-        print(f"✅ Deleted old file from MinIO: {evidence.object_name}")
+        print(f" Deleted old file from MinIO: {evidence.object_name}")
     except Exception as e:
-        print(f"⚠️ Failed to delete old file: {str(e)}")
+        print(f" Failed to delete old file: {str(e)}")
     
     
     file_extension = os.path.splitext(file.filename)[1]
