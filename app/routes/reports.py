@@ -255,7 +255,6 @@ async def export_reports(
             "affected_endpoint": sanitize_for_excel(report.affected_endpoint),
             "accepted_at": report.accepted_at.strftime("%Y-%m-%d %H:%M:%S") if report.accepted_at else None,
             "review_comment": sanitize_for_excel(report.review_comment),
-            "feedback": sanitize_for_excel(report.feedback),
             "point": report.point
         })
     
