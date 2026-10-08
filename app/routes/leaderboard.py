@@ -4,7 +4,7 @@ from sqlalchemy import func, desc
 from app.database import SessionLocal
 from app.models import User, Report
 from app.auth import get_current_active_user
-from app.auth import get_current_active_user
+from app.auth import get_current_admin
 
 router = APIRouter(prefix="/leaderboard", tags=["Leaderboard"])
 
