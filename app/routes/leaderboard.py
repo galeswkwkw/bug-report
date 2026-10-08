@@ -18,7 +18,7 @@ def get_db():
 # GET /leaderboard - GET LEADERBOARD (ALL USERS)
 @router.get("")
 async def get_leaderboard(
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
     """
